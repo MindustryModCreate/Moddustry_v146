@@ -10,7 +10,6 @@ import arc.graphics.g2d.*;
 import arc.math.*;
 import arc.util.*;
 import mindustry.ai.*;
-import mindustry.audio.*;
 import mindustry.core.*;
 import mindustry.ctype.*;
 import mindustry.game.EventType.*;
@@ -30,13 +29,12 @@ public abstract class ClientLauncher extends ApplicationCore implements Platform
 
     private long nextFrame;
     private long beginTime;
-    private long lastTargetFps = -1;
     private boolean finished = false;
     private LoadRenderer loader;
 
     @Override
     public void setup(){
-        String dataDir = System.getProperty("mindustry.data.dir", OS.env("MINDUSTRY_DATA_DIR"));
+        String dataDir = OS.env("MINDUSTRY_DATA_DIR");
         if(dataDir != null){
             Core.settings.setDataDirectory(files.absolute(dataDir));
         }
@@ -55,34 +53,22 @@ public abstract class ClientLauncher extends ApplicationCore implements Platform
         //debug GL information
         Log.info("[GL] Version: @", graphics.getGLVersion());
         Log.info("[GL] Max texture size: @", maxTextureSize);
-        Log.info("[GL] Using @ API.", gl30 != null ? "OpenGL 3" : "OpenGL 2");
-
-        if(GpuDetect.gpus.size > 0) Log.info("[GL] Detected GPU: @", GpuDetect.gpus.toString(", "));
-        if(GpuDetect.hasIntel && !graphics.isGL30Available()) Log.warn("[GL] Intel GPU detected. Due to memory corruption issues, OpenGL 3 support has been disabled for Intel GPUs. See issue #11041.");
-
-        if(gl30 == null && !GpuDetect.hasIntel) Log.warn("[GL] Your device or video drivers do not support OpenGL 3. This will cause performance issues.");
-
-        if(NvGpuInfo.hasMemoryInfo()) Log.info("[GL] Total available VRAM: @mb", NvGpuInfo.getMaxMemoryKB()/1024);
-
+        Log.info("[GL] Using @ context.", gl30 != null ? "OpenGL 3" : "OpenGL 2");
         if(maxTextureSize < 4096) Log.warn("[GL] Your maximum texture size is below the recommended minimum of 4096. This will cause severe performance issues.");
-
         Log.info("[JAVA] Version: @", OS.javaVersion);
         if(Core.app.isAndroid()){
             Log.info("[ANDROID] API level: @", Core.app.getVersion());
         }
         long ram = Runtime.getRuntime().maxMemory();
         boolean gb = ram >= 1024 * 1024 * 1024;
-        if(!OS.isIos){
-            Log.info("[RAM] Available: @ @", Strings.fixed(gb ? ram / 1024f / 1024 / 1024f : ram / 1024f / 1024f, 1), gb ? "GB" : "MB");
-        }
+        Log.info("[RAM] Available: @ @", Strings.fixed(gb ? ram / 1024f / 1024 / 1024f : ram / 1024f / 1024f, 1), gb ? "GB" : "MB");
 
         Time.setDeltaProvider(() -> {
             float result = Core.graphics.getDeltaTime() * 60f;
-            return (Float.isNaN(result) || Float.isInfinite(result)) ? 1f : Mathf.clamp(result, 0.0001f, maxDeltaClient);
+            return (Float.isNaN(result) || Float.isInfinite(result)) ? 1f : Mathf.clamp(result, 0.0001f, 60f / 10f);
         });
 
-        UI.loadColors();
-        batch = new SpriteBatch();
+        batch = new SortedSpriteBatch();
         assets = new AssetManager();
         assets.setLoader(Texture.class, "." + mapExtension, new MapPreviewLoader());
 
@@ -213,15 +199,10 @@ public abstract class ClientLauncher extends ApplicationCore implements Platform
 
     @Override
     public void update(){
-        PerfCounter.update.begin();
-
-        int targetfps = ios ? 0 : Core.settings.getInt("fpscap", 120);
-        boolean changed = lastTargetFps != targetfps && lastTargetFps != -1;
+        int targetfps = Core.settings.getInt("fpscap", 120);
         boolean limitFps = targetfps > 0 && targetfps <= 240;
 
-        lastTargetFps = targetfps;
-
-        if(limitFps && !changed){
+        if(limitFps){
             nextFrame += (1000 * 1000000) / targetfps;
         }else{
             nextFrame = Time.nanos();
@@ -234,14 +215,13 @@ public abstract class ClientLauncher extends ApplicationCore implements Platform
             if(assets.update(1000 / loadingFPS)){
                 loader.dispose();
                 loader = null;
-                SoundPriority.init();
+                Log.info("Total time to load: @ms", Time.timeSinceMillis(beginTime));
                 for(ApplicationListener listener : modules){
                     listener.init();
                 }
                 mods.eachClass(Mod::init);
                 finished = true;
                 Events.fire(new ClientLoadEvent());
-                Log.info("Total time to load: @ms", Time.timeSinceMillis(beginTime));
                 clientLoaded = true;
                 super.resize(graphics.getWidth(), graphics.getHeight());
                 app.post(() -> app.post(() -> app.post(() -> app.post(() -> {
@@ -266,8 +246,6 @@ public abstract class ClientLauncher extends ApplicationCore implements Platform
                 Threads.sleep(toSleep / 1000000, (int)(toSleep % 1000000));
             }
         }
-
-        PerfCounter.update.end();
     }
 
     @Override

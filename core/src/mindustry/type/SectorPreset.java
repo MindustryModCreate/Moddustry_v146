@@ -1,8 +1,6 @@
 package mindustry.type;
 
-import arc.*;
 import arc.func.*;
-import arc.util.*;
 import mindustry.ctype.*;
 import mindustry.game.*;
 import mindustry.gen.*;
@@ -23,8 +21,6 @@ public class SectorPreset extends UnlockableContent{
     public boolean noLighting = false;
     /** If true, this is the last sector in its planetary campaign. */
     public boolean isLastSector;
-    /** If true, this sector must be unlocked before landing is permitted. */
-    public boolean requireUnlock = true;
     public boolean showSectorLandInfo = true;
     /** If true, uses this sector's launch fields instead */
     public boolean overrideLaunchDefaults = false;
@@ -34,55 +30,37 @@ public class SectorPreset extends UnlockableContent{
     public boolean allowLaunchLoadout = false;
     /** If true, switches to attack mode after waves end. */
     public boolean attackAfterWaves = false;
-    /** The original position of this sector; used for migration. Internal use for vanilla campaign only! */
-    public int originalPosition;
 
     public SectorPreset(String name, Planet planet, int sector){
-        this(name, null, planet, sector);
-    }
-
-    public SectorPreset(String name, String fileName, Planet planet, int sector){
-        this(name, fileName, null);
+        this(name);
         initialize(planet, sector);
     }
 
     /** Internal use only! */
     public SectorPreset(String name, LoadedMod mod){
-        this(name, null, mod);
+        super(name);
+        this.minfo.mod = mod;
+        this.generator = new FileMapGenerator(name, this);
     }
 
     /** Internal use only! */
-    public SectorPreset(String name, @Nullable String fileName, LoadedMod mod){
-        super(name);
-        if(mod != null){
-            this.minfo.mod = mod;
-        }
-        //this.name can change based on the mod being loaded, so if a fileName is not specified, make sure to use the newly assigned this.name
-        this.generator = new FileMapGenerator(fileName == null ? this.name : fileName, this);
+    public SectorPreset(String name){
+       this(name, null);
     }
 
     public void initialize(Planet planet, int sector){
         this.planet = planet;
-        this.originalPosition = sector;
-        //auto remap based on data
-        var data = planet.getData();
-        if(data != null){
-            sector = data.presets.get(name, sector);
-        }
         sector %= planet.sectors.size;
-        this.sector = planet.sectors.get(sector == -1 ? 0 : sector);
+        this.sector = planet.sectors.get(sector);
+        inlineDescription = false;
 
-        if(sector != -1){
-            planet.preset(sector, this);
-        }else{
-            Log.warn("Preset '@' doesn't have a sector assigned.", name);
-        }
+        planet.preset(sector, this);
     }
 
     @Override
     public void loadIcon(){
         if(Icon.terrain != null){
-            uiIcon = fullIcon = Core.atlas.find("sector-" + name, Icon.terrain.getRegion());
+            uiIcon = fullIcon = Icon.terrain.getRegion();
         }
     }
 

@@ -151,7 +151,6 @@ public class MapGenerateDialog extends BaseDialog{
     public void applyToEditor(Seq<GenerateFilter> filters){
         //writeback buffer
         long[] writeTiles = new long[editor.width() * editor.height()];
-        long[] writeData = new long[writeTiles.length];
 
         for(GenerateFilter filter : filters){
             input.begin(editor.width(), editor.height(), editor::tile);
@@ -159,10 +158,10 @@ public class MapGenerateDialog extends BaseDialog{
             //write to buffer
             for(int x = 0; x < editor.width(); x++){
                 for(int y = 0; y < editor.height(); y++){
-                    input.set(editor.tile(x, y));
+                    Tile tile = editor.tile(x, y);
+                    input.set(x, y, tile.block(), tile.floor(), tile.overlay());
                     filter.apply(input);
                     writeTiles[x + y*world.width()] = PackTile.get(input.block.id, input.floor.id, input.overlay.id);
-                    writeData[x + y*world.width()] = input.packedData;
                 }
             }
 
@@ -179,8 +178,6 @@ public class MapGenerateDialog extends BaseDialog{
                         tile.setBlock(block);
                     }
 
-                    tile.setPackedData(writeData[i]);
-
                     tile.setFloor((Floor)floor);
                     tile.setOverlay(overlay);
                 }
@@ -188,7 +185,7 @@ public class MapGenerateDialog extends BaseDialog{
         }
 
         //reset undo stack as generation... messes things up
-        editor.renderer.recache();
+        editor.renderer.updateAll();
         editor.clearOp();
     }
 
@@ -434,7 +431,7 @@ public class MapGenerateDialog extends BaseDialog{
                     pixmap.each((px, py) -> {
                         int x = px * scaling, y = py * scaling;
                         long tile = buffer1[px + py * w];
-                        input.set(x, y, content.block(PackTile.block(tile)), content.block(PackTile.floor(tile)), content.block(PackTile.overlay(tile)), 0);
+                        input.set(x, y, content.block(PackTile.block(tile)), content.block(PackTile.floor(tile)), content.block(PackTile.overlay(tile)));
                         filter.apply(input);
                         buffer2[px + py * w] = PackTile.get(input.block.id, input.floor.id, input.overlay.id);
                     });

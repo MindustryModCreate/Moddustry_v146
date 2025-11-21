@@ -58,7 +58,7 @@ public class Pixelator implements Disposable{
     }
 
     public boolean enabled(){
-        return renderer.pixelate;
+        return Core.settings.getBool("pixelate");
     }
 
     @Override

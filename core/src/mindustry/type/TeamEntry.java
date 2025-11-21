@@ -9,13 +9,9 @@ import mindustry.game.*;
 public class TeamEntry extends UnlockableContent{
     public final Team team;
 
-    public TeamEntry(String name, Team team){
-        super(name);
-        this.team = team;
-    }
-
     public TeamEntry(Team team){
-        this(team.name, team);
+        super(team.name);
+        this.team = team;
     }
 
     @Override

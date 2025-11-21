@@ -7,7 +7,6 @@ uniform vec2 u_uv;
 uniform vec2 u_uv2;
 uniform float u_progress;
 uniform float u_time;
-uniform float u_alpha;
 
 varying vec4 v_color;
 varying vec2 v_texCoords;
@@ -28,10 +27,6 @@ bool cont(vec2 T, vec2 v){
                 id(T + vec2(-step, -step) * v, base) || id(T + vec2(-step, step) * v, base));
 }
 
-vec4 blend(vec4 dst, vec4 src){
-    return src * src.a + dst * (1.0 - src.a);
-}
-
 void main(){
 
 	vec2 t = v_texCoords.xy;
@@ -46,11 +41,11 @@ void main(){
 	float dst = (abs(center.x - coords.x) + abs(center.y - coords.y))/2.0;
 
 	if((mod(u_time / 1.5 + value, 20.0) < 15.0 && cont(t, v))){
-        gl_FragColor = blend(color, v_color) * vec4(vec3(1.0), u_alpha);
+        gl_FragColor = v_color;
     }else if(dst > (1.0-u_progress) * (center.x)){
-        gl_FragColor = color * vec4(vec3(1.0), u_alpha);
+        gl_FragColor = color;
     }else if((dst + 2.0 > (1.0-u_progress) * (center.x)) && color.a > 0.1){
-        gl_FragColor = blend(color, v_color) * vec4(vec3(1.0), u_alpha);
+        gl_FragColor = v_color;
     }else{
         gl_FragColor = vec4(0.0);
     }

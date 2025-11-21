@@ -18,7 +18,7 @@ public abstract class DrawPart{
     public int recoilIndex = -1;
 
     public abstract void draw(PartParams params);
-    public void load(String name){}
+    public abstract void load(String name);
     public void getOutlines(Seq<TextureRegion> out){}
 
     /** Parameters for drawing a part in draw(). */
@@ -85,9 +85,7 @@ public abstract class DrawPart{
         /** Weapon heat, 1 when just fired, 0, when it has cooled down (duration depends on weapon) */
         heat = p -> p.heat,
         /** Lifetime fraction, 0 to 1. Only for missiles. */
-        life = p -> p.life,
-        /** Current unscaled value of Time.time. */
-        time = p -> Time.time;
+        life = p -> p.life;
 
         float get(PartParams p);
 
@@ -96,11 +94,7 @@ public abstract class DrawPart{
         }
 
         default float getClamp(PartParams p){
-            return getClamp(p, true);
-        }
-
-        default float getClamp(PartParams p, boolean clamp){
-            return clamp ? Mathf.clamp(get(p)) : get(p);
+            return Mathf.clamp(get(p));
         }
 
         default PartProgress inv(){
@@ -172,14 +166,6 @@ public abstract class DrawPart{
 
         default PartProgress absin(float scl, float mag){
             return p -> get(p) + Mathf.absin(scl, mag);
-        }
-
-        default PartProgress mod(float amount){
-            return p -> Mathf.mod(get(p), amount);
-        }
-
-        default PartProgress loop(float time){
-            return p -> Mathf.mod(get(p)/time, 1);
         }
 
         default PartProgress apply(PartProgress other, PartFunc func){

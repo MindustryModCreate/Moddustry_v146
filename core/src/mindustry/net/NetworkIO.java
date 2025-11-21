@@ -3,7 +3,6 @@ package mindustry.net;
 import arc.*;
 import arc.util.*;
 import arc.util.io.*;
-import mindustry.*;
 import mindustry.core.*;
 import mindustry.ctype.*;
 import mindustry.game.*;
@@ -12,7 +11,6 @@ import mindustry.io.*;
 import mindustry.logic.*;
 import mindustry.maps.Map;
 import mindustry.net.Administration.*;
-import mindustry.type.*;
 
 import java.io.*;
 import java.nio.*;
@@ -31,14 +29,13 @@ public class NetworkIO{
                 for(ContentType type : ContentType.all){
                     for(Content c : content.getBy(type)){
                         if(c instanceof UnlockableContent u && u.unlocked() && u.techNode != null){
-                            state.rules.researched.add(u);
+                            state.rules.researched.add(u.name);
                         }
                     }
                 }
             }
 
             stream.writeUTF(JsonIO.write(state.rules));
-            stream.writeUTF(JsonIO.write(state.mapLocales));
             SaveIO.getSaveWriter().writeStringMap(stream, state.map.tags);
 
             stream.writeInt(state.wave);
@@ -51,10 +48,8 @@ public class NetworkIO{
             player.write(new Writes(stream));
 
             SaveIO.getSaveWriter().writeContentHeader(stream);
-            SaveIO.getSaveWriter().writeContentPatches(stream);
             SaveIO.getSaveWriter().writeMap(stream);
             SaveIO.getSaveWriter().writeTeamBlocks(stream);
-            SaveIO.getSaveWriter().writeMarkers(stream);
             SaveIO.getSaveWriter().writeCustomChunks(stream, true);
         }catch(IOException e){
             throw new RuntimeException(e);
@@ -66,7 +61,6 @@ public class NetworkIO{
         try(DataInputStream stream = new DataInputStream(is)){
             Time.clear();
             state.rules = JsonIO.read(Rules.class, stream.readUTF());
-            state.mapLocales = JsonIO.read(MapLocales.class, stream.readUTF());
             state.map = new Map(SaveIO.getSaveWriter().readStringMap(stream));
 
             state.wave = stream.readInt();
@@ -85,10 +79,8 @@ public class NetworkIO{
             player.add();
 
             SaveIO.getSaveWriter().readContentHeader(stream);
-            SaveIO.getSaveWriter().readContentPatches(stream);
             SaveIO.getSaveWriter().readMap(stream, world.context);
             SaveIO.getSaveWriter().readTeamBlocks(stream);
-            SaveIO.getSaveWriter().readMarkers(stream);
             SaveIO.getSaveWriter().readCustomChunks(stream);
         }catch(IOException e){
             throw new RuntimeException(e);
@@ -116,29 +108,25 @@ public class NetworkIO{
         buffer.putInt(netServer.admins.getPlayerLimit());
 
         writeString(buffer, description, 100);
-        writeString(buffer, state.rules.modeName == null ? "" : state.rules.modeName, 50);
-        buffer.putShort((short)Core.settings.getInt("port", port));
+        if(state.rules.modeName != null){
+            writeString(buffer, state.rules.modeName, 50);
+        }
         return buffer;
     }
 
     public static Host readServerData(int ping, String hostAddress, ByteBuffer buffer){
         String host = readString(buffer);
         String map = readString(buffer);
-
         int players = buffer.getInt();
         int wave = buffer.getInt();
         int version = buffer.getInt();
         String vertype = readString(buffer);
-
         Gamemode gamemode = Gamemode.all[buffer.get()];
         int limit = buffer.getInt();
-
         String description = readString(buffer);
         String modeName = readString(buffer);
-        short port = buffer.getShort();
-        int hostPort = port != 0 ? port : Vars.port;
 
-        return new Host(ping, host, hostAddress, hostPort, map, wave, players, version, vertype, gamemode, limit, description, modeName.isEmpty() ? null : modeName);
+        return new Host(ping, host, hostAddress, map, wave, players, version, vertype, gamemode, limit, description, modeName.isEmpty() ? null : modeName);
     }
 
     private static void writeString(ByteBuffer buffer, String string, int maxlen){

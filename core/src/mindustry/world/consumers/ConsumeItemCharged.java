@@ -1,9 +1,9 @@
 package mindustry.world.consumers;
 
-import mindustry.type.*;
+import mindustry.gen.*;
 
 /** For mods. I don't use this (yet). */
-public class ConsumeItemCharged extends ConsumeItemEfficiency{
+public class ConsumeItemCharged extends ConsumeItemFilter{
     public float minCharge;
 
     public ConsumeItemCharged(float minCharge){
@@ -16,7 +16,8 @@ public class ConsumeItemCharged extends ConsumeItemEfficiency{
     }
 
     @Override
-    public float itemEfficiencyMultiplier(Item item){
-        return item.charge;
+    public float efficiencyMultiplier(Building build){
+        var item = getConsumed(build);
+        return item == null ? 0f : item.charge;
     }
 }

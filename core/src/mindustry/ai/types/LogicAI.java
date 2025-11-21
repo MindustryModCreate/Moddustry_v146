@@ -3,6 +3,7 @@ package mindustry.ai.types;
 import arc.math.*;
 import arc.struct.*;
 import arc.util.*;
+import mindustry.*;
 import mindustry.ai.*;
 import mindustry.entities.units.*;
 import mindustry.gen.*;
@@ -20,7 +21,8 @@ public class LogicAI extends AIController{
     public LUnitControl control = LUnitControl.idle;
     public float moveX, moveY, moveRad;
     public float controlTimer = logicControlTimeout, targetTimer;
-    public @Nullable Building controller;
+    @Nullable
+    public Building controller;
     public BuildPlan plan = new BuildPlan();
 
     //special cache for instruction to store data
@@ -39,6 +41,8 @@ public class LogicAI extends AIController{
     public PosTeam posTarget = PosTeam.create();
 
     private ObjectSet<Object> radars = new ObjectSet<>();
+    private float lastMoveX, lastMoveY;
+    private int lastPathId = 0;
 
     // LogicAI state should not be reset after reading.
     @Override
@@ -48,6 +52,14 @@ public class LogicAI extends AIController{
 
     @Override
     public void updateMovement(){
+        if(control == LUnitControl.pathfind){
+            if(!Mathf.equal(moveX, lastMoveX, 0.1f) || !Mathf.equal(moveY, lastMoveY, 0.1f)){
+                lastPathId ++;
+                lastMoveX = moveX;
+                lastMoveY = moveY;
+            }
+        }
+
         if(targetTimer > 0f){
             targetTimer -= Time.delta;
         }else{
@@ -74,7 +86,7 @@ public class LogicAI extends AIController{
                 if(unit.isFlying()){
                     moveTo(Tmp.v1.set(moveX, moveY), 1f, 30f);
                 }else{
-                    if(controlPath.getPathPosition(unit, Tmp.v2.set(moveX, moveY), Tmp.v2, Tmp.v1, null)){
+                    if(Vars.controlPath.getPathPosition(unit, lastPathId, Tmp.v2.set(moveX, moveY), Tmp.v1, null)){
                         moveTo(Tmp.v1, 1f, Tmp.v2.epsilonEquals(Tmp.v1, 4.1f) ? 30f : 0f);
                     }
                 }

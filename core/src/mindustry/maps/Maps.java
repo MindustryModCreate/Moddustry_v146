@@ -33,7 +33,7 @@ public class Maps{
     NoiseFilter::new, ScatterFilter::new, TerrainFilter::new, DistortFilter::new,
     RiverNoiseFilter::new, OreFilter::new, OreMedianFilter::new, MedianFilter::new,
     BlendFilter::new, MirrorFilter::new, ClearFilter::new, CoreSpawnFilter::new,
-    EnemySpawnFilter::new, SpawnPathFilter::new, LogicFilter::new
+    EnemySpawnFilter::new, SpawnPathFilter::new
     };
 
     /** List of all built-in maps. Filenames only. */
@@ -134,7 +134,7 @@ public class Maps{
         }
 
         //custom
-        customMapDirectory.walk(file -> {
+        for(Fi file : customMapDirectory.list()){
             try{
                 if(file.extension().equalsIgnoreCase(mapExtension)){
                     loadMap(file, true);
@@ -143,7 +143,7 @@ public class Maps{
                 Log.err("Failed to load custom map file '@'!", file);
                 Log.err(e);
             }
-        });
+        }
 
         //workshop
         for(Fi file : platform.getWorkshopContent(Map.class)){

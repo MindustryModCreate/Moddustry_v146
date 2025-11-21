@@ -12,7 +12,6 @@ public class FlarePart extends DrawPart{
     public float x, y, rotation, rotMove, spinSpeed;
     public boolean followRotation;
     public Color color1 = Pal.techBlue, color2 = Color.white;
-    public boolean clampProgress = true;
     public PartProgress progress = PartProgress.warmup;
     public float layer = Layer.effect;
 
@@ -21,7 +20,7 @@ public class FlarePart extends DrawPart{
         float z = Draw.z();
         if(layer > 0) Draw.z(layer);
 
-        float prog = progress.getClamp(params, clampProgress);
+        float prog = progress.getClamp(params);
         int i = params.sideOverride == -1 ? 0 : params.sideOverride;
 
         float sign = (i == 0 ? 1 : -1) * params.sideMultiplier;

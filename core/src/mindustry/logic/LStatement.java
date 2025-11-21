@@ -2,7 +2,6 @@ package mindustry.logic;
 
 import arc.*;
 import arc.func.*;
-import arc.graphics.*;
 import arc.math.*;
 import arc.scene.*;
 import arc.scene.actions.*;
@@ -11,37 +10,16 @@ import arc.scene.ui.layout.*;
 import arc.struct.*;
 import arc.util.*;
 import mindustry.gen.*;
-import mindustry.graphics.*;
 import mindustry.logic.LCanvas.*;
 import mindustry.logic.LExecutor.*;
 import mindustry.ui.*;
 
-import static mindustry.Vars.*;
 import static mindustry.logic.LCanvas.*;
 
 /**
  * A statement is an intermediate representation of an instruction, to be used mostly in UI.
  * Contains all relevant variable information. */
 public abstract class LStatement{
-
-    private static final String[] aligns = {"topLeft", "top", "topRight", "left", "center", "right", "bottomLeft", "bottom", "bottomRight"};
-    public static final ObjectMap<String, Integer> nameToAlign = ObjectMap.of(
-    "center", Align.center,
-    "top", Align.top,
-    "bottom", Align.bottom,
-    "left", Align.left,
-    "right", Align.right,
-    "topLeft", Align.topLeft,
-    "topRight", Align.topRight,
-    "bottomLeft", Align.bottomLeft,
-    "bottomRight", Align.bottomRight
-    );
-    public static final IntMap<String> alignToName = new IntMap<>();
-
-    static {
-        nameToAlign.each((k, v) -> alignToName.put(v, k));
-    }
-
     public transient @Nullable StatementElem elem;
 
     public abstract void build(Table table);
@@ -122,41 +100,12 @@ public abstract class LStatement{
 
     protected Cell<TextField> field(Table table, String value, Cons<String> setter){
         return table.field(value, Styles.nodeField, s -> setter.get(sanitize(s)))
-            .size(144f, 40f).pad(2f).color(table.color);
+            .size(144f, 40f).pad(2f).color(table.color).maxTextLength(LAssembler.maxTokenLength);
     }
 
     protected Cell<TextField> fields(Table table, String desc, String value, Cons<String> setter){
         table.add(desc).padLeft(10).left().self(this::param);
         return field(table, value, setter).width(85f).padRight(10).left();
-    }
-
-    /** Puts the text and field in one table, taking up one cell. */
-    protected Cell<TextField> fieldst(Table table, String desc, String value, Cons<String> setter){
-        Cell[] result = {null};
-        table.table(t -> {
-            t.setColor(table.color);
-            t.add(desc).padLeft(10).left().self(this::param);
-            result[0] = field(t, value, setter).width(85f).padRight(10).left();
-        });
-
-        return result[0];
-    }
-
-    /** Adds color edit button */
-    protected Cell<Button> col(Table table, String value, Cons<Color> setter){
-        return table.button(b -> {
-            b.image(Icon.pencilSmall);
-            b.clicked(() -> {
-                Color current = Pal.accent.cpy();
-                if(value.startsWith("%")){
-                    try{
-                        current = Color.valueOf(value.substring(1));
-                    }catch(Exception ignored){}
-                }
-
-                ui.picker.show(current, setter);
-            });
-        }, Styles.logict, () -> {}).size(40f).padLeft(-11).color(table.color);
     }
 
     protected Cell<TextField> fields(Table table, String value, Cons<String> setter){
@@ -183,7 +132,7 @@ public abstract class LStatement{
                     if(p instanceof Enum e){
                         tooltip(c, e);
                     }
-                }).checked(current.equals(p)).group(group));
+                }).checked(current == p).group(group));
 
                 if(++i % cols == 0) t.row();
             }
@@ -194,36 +143,7 @@ public abstract class LStatement{
         showSelect(b, values, current, getter, 4, c -> {});
     }
 
-    protected void fieldAlignSelect(Table t, Prov<String> get, Cons<String> set, boolean hor, boolean ver) {
-        t.button(b -> {
-            b.image(Icon.pencilSmall);
-            b.clicked(() -> {
-                var current = get.get();
-                showAlignSelect(b, current.startsWith("@") ? nameToAlign.get(current.substring(1), -1) : -1, align -> set.get("@" + alignToName.get(align)), hor, ver);
-            });
-        }, Styles.logict, () -> {}).size(40f).color(t.color).left().padLeft(-10);
-    }
-
-    public static void showAlignSelect(Button b, int current, Intc setter, boolean hor, boolean ver) {
-        showSelectTable(b, (t, hide) -> {
-            t.defaults().size(150f, 40f);
-
-            int i = 0;
-            for(String align : aligns){
-                int val = nameToAlign.get(align);
-                if(!hor && !Align.isCenterHorizontal(val)) continue;
-                if(!ver && !Align.isCenterVertical(val)) continue;
-                t.button(align, Styles.logicTogglet, () -> {
-                    setter.get(val);
-                    hide.run();
-                }).checked(current == nameToAlign.get(align)).grow();
-
-                if (++i % 3 == 0) t.row();
-            }
-        });
-    }
-
-    protected static void showSelectTable(Button b, Cons2<Table, Runnable> hideCons){
+    protected void showSelectTable(Button b, Cons2<Table, Runnable> hideCons){
         Table t = new Table(Tex.paneSolid){
             @Override
             public float getPrefHeight(){
@@ -290,10 +210,6 @@ public abstract class LStatement{
 
     public void saveUI(){
 
-    }
-
-    public String typeName(){
-        return getClass().getSimpleName().replace("Statement", "");
     }
 
     public String name(){

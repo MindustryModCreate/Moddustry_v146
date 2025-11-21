@@ -4,6 +4,7 @@ import arc.math.*;
 import arc.math.geom.*;
 import arc.util.*;
 import mindustry.*;
+import mindustry.ai.*;
 import mindustry.annotations.Annotations.*;
 import mindustry.content.*;
 import mindustry.entities.*;
@@ -12,19 +13,17 @@ import mindustry.game.*;
 import mindustry.gen.*;
 import mindustry.graphics.*;
 import mindustry.type.*;
-import mindustry.world.blocks.*;
 import mindustry.world.blocks.environment.*;
 
 import static mindustry.Vars.*;
 
 @Component
-abstract class LegsComp implements Posc, Rotc, Hitboxc, Unitc{
+abstract class LegsComp implements Posc, Rotc, Hitboxc, Flyingc, Unitc{
     private static final Vec2 straightVec = new Vec2();
 
     @Import float x, y, rotation, speedMultiplier;
     @Import UnitType type;
     @Import Team team;
-    @Import boolean disarmed;
 
     transient Leg[] legs = {};
     transient float totalLength;
@@ -36,7 +35,13 @@ abstract class LegsComp implements Posc, Rotc, Hitboxc, Unitc{
     @Replace
     @Override
     public SolidPred solidity(){
-        return ignoreSolids() ? null : type.allowLegStep ? EntityCollisions::legsSolid : EntityCollisions::solid;
+        return type.allowLegStep ? EntityCollisions::legsSolid : EntityCollisions::solid;
+    }
+
+    @Override
+    @Replace
+    public int pathType(){
+        return type.allowLegStep ? Pathfinder.costLegs : Pathfinder.costGround;
     }
 
     @Override
@@ -104,7 +109,6 @@ abstract class LegsComp implements Posc, Rotc, Hitboxc, Unitc{
 
             legs[i] = l;
         }
-        totalLength = Mathf.random(100f);
     }
 
     @Override
@@ -187,13 +191,8 @@ abstract class LegsComp implements Posc, Rotc, Hitboxc, Unitc{
                         }
                     }
 
-                    if(type.legSplashDamage > 0 && !disarmed){
+                    if(type.legSplashDamage > 0){
                         Damage.damage(team, l.base.x, l.base.y, type.legSplashRange, type.legSplashDamage * state.rules.unitDamage(team), false, true);
-
-                        var tile = Vars.world.tileWorld(l.base.x, l.base.y);
-                        if(tile != null && tile.block().unitMoveBreakable){
-                            ConstructBlock.deconstructFinish(tile, tile.block(), self());
-                        }
                     }
                 }
 

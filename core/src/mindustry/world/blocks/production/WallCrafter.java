@@ -17,7 +17,6 @@ import mindustry.graphics.*;
 import mindustry.type.*;
 import mindustry.ui.*;
 import mindustry.world.*;
-import mindustry.world.consumers.*;
 import mindustry.world.meta.*;
 
 import static mindustry.Vars.*;
@@ -31,8 +30,6 @@ public class WallCrafter extends Block{
 
     /** Time to produce one item at 100% efficiency. */
     public float drillTime = 150f;
-    /** How many times faster the drill will progress when boosted by liquid. */
-    public float liquidBoostIntensity = 1.6f;
     /** Effect randomly played while drilling. */
     public Effect updateEffect = Fx.mineWallSmall;
     public float updateEffectChance = 0.02f;
@@ -42,14 +39,6 @@ public class WallCrafter extends Block{
 
     public Item output = Items.sand;
 
-    public float boostItemUseTime = 120f;
-    /** How many times faster the drill will progress when boosted by items. Note: Using item and liquid boosters at once is not supported. */
-    public float itemBoostIntensity = 1.6f;
-    public @Nullable Consume itemConsumer;
-    public boolean hasLiquidBooster;
-
-    public final int timerUse = timers ++;
-
     public WallCrafter(String name){
         super(name);
 
@@ -57,7 +46,6 @@ public class WallCrafter extends Block{
         rotate = true;
         update = true;
         solid = true;
-        ignoreLineRotation = true;
         regionRotated1 = 1;
 
         envEnabled |= Env.space;
@@ -79,31 +67,6 @@ public class WallCrafter extends Block{
         stats.add(Stat.output, output);
         stats.add(Stat.tiles, StatValues.blocks(attribute, floating, 1f, true, false));
         stats.add(Stat.drillSpeed, 60f / drillTime * size, StatUnit.itemsSecond);
-
-        boolean consItems = itemConsumer != null;
-
-        if(consItems) stats.timePeriod = boostItemUseTime;
-
-        if(consItems && itemConsumer instanceof ConsumeItems coni){
-            stats.remove(Stat.booster);
-            stats.add(Stat.booster, StatValues.itemBoosters("{0}" + StatUnit.timesSpeed.localized(), stats.timePeriod, itemBoostIntensity, 0f, coni.items));
-        }
-
-        if(liquidBoostIntensity != 1 && findConsumer(f -> f instanceof ConsumeLiquidBase && f.booster) instanceof ConsumeLiquidBase consBase){
-            stats.remove(Stat.booster);
-            stats.add(Stat.booster,
-                StatValues.speedBoosters("{0}" + StatUnit.timesSpeed.localized(),
-                consBase.amount,
-                liquidBoostIntensity, false, consBase::consumes)
-            );
-        }
-    }
-
-    @Override
-    public void init(){
-        super.init();
-
-        hasLiquidBooster = findConsumer(f -> f instanceof ConsumeLiquidBase && f.booster) != null;
     }
 
     @Override
@@ -188,7 +151,6 @@ public class WallCrafter extends Block{
             super.updateTile();
 
             boolean cons = shouldConsume();
-            boolean itemValid = itemConsumer != null && itemConsumer.efficiency(this) > 0;
 
             warmup = Mathf.approachDelta(warmup, Mathf.num(efficiency > 0), 1f / 40f);
             float dx = Geometry.d4x(rotation) * 0.5f, dy = Geometry.d4y(rotation) * 0.5f;
@@ -202,29 +164,25 @@ public class WallCrafter extends Block{
                         dest.block().mapColor
                     );
                 }
-            }, null) * Mathf.lerp(1f, liquidBoostIntensity, hasLiquidBooster ? optionalEfficiency : 0f) * (itemValid ? itemBoostIntensity : 1f);
-
-            if(itemValid && eff * efficiency > 0 && timer(timerUse, boostItemUseTime)){
-                consume();
-            }
+            }, null);
 
             lastEfficiency = eff * timeScale * efficiency;
 
             if(cons && (time += edelta() * eff) >= drillTime){
-                offload(output);
+                items.add(output, 1);
                 time %= drillTime;
             }
 
-            totalTime += edelta() * warmup * (eff <= 0f ? 0f : 1f);
+            totalTime += edelta() * warmup;
 
-            if(timer(timerDump, dumpTime / timeScale)){
-                dump(output);
+            if(timer(timerDump, dumpTime)){
+                dump();
             }
         }
 
         @Override
         public boolean shouldConsume(){
-            return items.get(output) < itemCapacity;
+            return items.total() < itemCapacity;
         }
 
         @Override

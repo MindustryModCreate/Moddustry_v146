@@ -132,7 +132,7 @@ public class ColorPicker extends BaseDialog{
 
             hexField = t.field(current.toString(), value -> {
                 try{
-                    Color.valueOf(current, value);
+                    current.set(Color.valueOf(value).a(a));
                     current.toHsv(values);
                     h = values[0];
                     s = values[1];

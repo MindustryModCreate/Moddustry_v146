@@ -2,7 +2,7 @@ package mindustry.server;
 
 import arc.*;
 import arc.files.*;
-import arc.func.*;
+import arc.func.Cons;
 import arc.struct.*;
 import arc.util.*;
 import arc.util.Timer;
@@ -10,8 +10,6 @@ import arc.util.CommandHandler.*;
 import arc.util.Timer.*;
 import arc.util.serialization.*;
 import arc.util.serialization.JsonValue.*;
-import arc.util.serialization.Jval.*;
-import mindustry.*;
 import mindustry.core.GameState.*;
 import mindustry.core.*;
 import mindustry.game.EventType.*;
@@ -73,8 +71,6 @@ public class ServerControl implements ApplicationListener{
     private PrintWriter socketOutput;
     private String suggested;
     private boolean autoPaused = false;
-    private Fi patchDirectory;
-    private Seq<String> contentPatches = new Seq<>();
 
     public Cons<GameOverEvent> gameOverListener = event -> {
         if(state.rules.waves){
@@ -152,7 +148,7 @@ public class ServerControl implements ApplicationListener{
             return useColors ? addColors(text) : removeColors(text);
         };
 
-        Time.setDeltaProvider(() -> Math.min(Core.graphics.getDeltaTime() * 60f, maxDeltaServer));
+        Time.setDeltaProvider(() -> Core.graphics.getDeltaTime() * 60f);
 
         registerCommands();
 
@@ -194,16 +190,12 @@ public class ServerControl implements ApplicationListener{
             }
         });
 
+        customMapDirectory.mkdirs();
+
         if(Version.build == -1){
             warn("&lyYour server is running a custom build, which means that client checking is disabled.");
             warn("&lyIt is highly advised to specify which version you're using by building with gradle args &lb&fb-Pbuildversion=&lr<build>");
         }
-
-        customMapDirectory.mkdirs();
-
-        patchDirectory = dataDirectory.child("patches");
-        patchDirectory.mkdirs();
-        loadPatchFiles();
 
         //set up default shuffle mode
         try{
@@ -255,30 +247,11 @@ public class ServerControl implements ApplicationListener{
                     }
                 }
             }
-
-            if(state.isGame()){ //run this only if the server's actually hosting
-                if(Config.autoPause.bool()){
-                    if(Groups.player.isEmpty()){
-                        autoPaused = true;
-                        state.set(State.paused);
-                    }else if(autoPaused){
-                        autoPaused = false;
-                        state.set(State.playing);
-                    }
-                }else if(autoPaused && Vars.state.isPaused()){ //unpause when the config is disabled
-                    state.set(State.playing);
-                    autoPaused = false;
-                }
-            }
         });
 
         Events.run(Trigger.socketConfigChanged, () -> {
             toggleSocket(false);
             toggleSocket(Config.socketInput.bool());
-        });
-
-        Events.on(ResetEvent.class, e -> {
-            autoPaused = false;
         });
 
         Events.on(PlayEvent.class, e -> {
@@ -322,29 +295,21 @@ public class ServerControl implements ApplicationListener{
             info("Server loaded. Type @ for help.", "'help'");
         });
 
-        Events.on(ContentPatchLoadEvent.class, event -> {
-            //NOTE: if patches change, and an older save is loaded, the patches will be applied twice; the old ones won't be removed.
-            for(String patch : contentPatches){
-                event.patches.addUnique(patch);
+        Events.on(PlayerJoin.class, e -> {
+            if(state.isPaused() && autoPaused && Config.autoPause.bool()){
+                state.set(State.playing);
+                autoPaused = false;
             }
         });
-    }
 
-    void loadPatchFiles(){
-        contentPatches.clear();
-        Seq<Fi> patches = patchDirectory.findAll(f -> f.extEquals("json") || f.extEquals("hjson") || f.extEquals("json5")).sort();
-
-        for(Fi patch : patches){
-            try{
-                contentPatches.add(Jval.read(patch.readString()).toString(Jformat.plain));
-            }catch(Throwable e){
-                Log.err("Invalid patch file: " + patch.name(), e);
+        Events.on(PlayerLeave.class, e -> {
+            // The player list length is compared with 1 and not 0 here,
+            // because when PlayerLeave gets fired, the player hasn't been removed from the player list yet
+            if(!state.isPaused() && Config.autoPause.bool() && Groups.player.size() == 1){
+                state.set(State.paused);
+                autoPaused = true;
             }
-        }
-
-        if(contentPatches.size > 0){
-            Log.info("Loaded @ content patch files.", contentPatches.size);
-        }
+        });
     }
 
     protected void registerCommands(){
@@ -378,18 +343,18 @@ public class ServerControl implements ApplicationListener{
 
         handler.register("stop", "Stop hosting the server.", arg -> {
             net.closeServer();
-            cancelPlayTask();
+            if(lastTask != null) lastTask.cancel();
             state.set(State.menu);
             info("Stopped server.");
         });
 
         handler.register("host", "[mapname] [mode]", "Open the server. Will default to survival and a random map if not specified.", arg -> {
-            if(state.isGame()){
+            if(state.is(State.playing)){
                 err("Already hosting. Type 'stop' to stop hosting first.");
                 return;
             }
 
-            cancelPlayTask();
+            if(lastTask != null) lastTask.cancel();
 
             Gamemode preset = Gamemode.survival;
 
@@ -412,28 +377,29 @@ public class ServerControl implements ApplicationListener{
                 }
             }else{
                 result = maps.getShuffleMode().next(preset, state.map);
-                if(result != null){
-                    info("Randomized next map to be @.", result.plainName());
-                }
+                info("Randomized next map to be @.", result.plainName());
             }
 
             info("Loading map...");
 
             logic.reset();
-            if(result != null){
-                lastMode = preset;
-                Core.settings.put("lastServerMode", lastMode.name());
-                try{
-                    world.loadMap(result, result.applyRules(lastMode));
-                    state.rules = result.applyRules(preset);
-                    logic.play();
+            lastMode = preset;
+            Core.settings.put("lastServerMode", lastMode.name());
+            try{
+                world.loadMap(result, result.applyRules(lastMode));
+                state.rules = result.applyRules(preset);
+                logic.play();
 
-                    info("Map loaded.");
+                info("Map loaded.");
 
-                    netServer.openServer();
-                }catch(MapException e){
-                    err("@: @", e.map.plainName(), e.getMessage());
+                netServer.openServer();
+
+                if(Config.autoPause.bool()){
+                    state.set(State.paused);
+                    autoPaused = true;
                 }
+            }catch(MapException e){
+                err("@: @", e.map.plainName(), e.getMessage());
             }
         });
 
@@ -465,13 +431,6 @@ public class ServerControl implements ApplicationListener{
                 info("No maps found.");
             }
             info("Map directory: &fi@", customMapDirectory.file().getAbsoluteFile().toString());
-        });
-
-        handler.register("reloadpatches", "Reload all patch files from disk.", arg -> {
-            loadPatchFiles();
-            if(contentPatches.isEmpty()){
-                err("No valid content patch files found.");
-            }
         });
 
         handler.register("reloadmaps", "Reload all maps from disk.", arg -> {
@@ -542,7 +501,7 @@ public class ServerControl implements ApplicationListener{
         });
 
         handler.register("say", "<message...>", "Send a message to all players.", arg -> {
-            if(!state.isGame()){
+            if(!state.is(State.playing)){
                 err("Not hosting. Host a game first.");
                 return;
             }
@@ -559,7 +518,7 @@ public class ServerControl implements ApplicationListener{
             }
             boolean pause = arg[0].equals("on");
             autoPaused = false;
-            state.set(pause ? State.paused : State.playing);
+            state.set(state.isPaused() ? State.playing : State.paused);
             info(pause ? "Game paused." : "Game unpaused.");
         });
 
@@ -616,7 +575,7 @@ public class ServerControl implements ApplicationListener{
         });
 
         handler.register("fillitems", "[team]", "Fill the core with items.", arg -> {
-            if(!state.isGame()){
+            if(!state.is(State.playing)){
                 err("Not playing. Host first.");
                 return;
             }
@@ -704,7 +663,7 @@ public class ServerControl implements ApplicationListener{
             if(arg.length == 0){
                 info("Subnets banned: @", netServer.admins.getSubnetBans().isEmpty() ? "<none>" : "");
                 for(String subnet : netServer.admins.getSubnetBans()){
-                    info("&lw\t" + subnet);
+                    info("&lw  " + subnet);
                 }
             }else if(arg.length == 1){
                 err("You must provide a subnet to add or remove.");
@@ -791,7 +750,7 @@ public class ServerControl implements ApplicationListener{
         });
 
         handler.register("kick", "<username...>", "Kick a person by name.", arg -> {
-            if(!state.isGame()){
+            if(!state.is(State.playing)){
                 err("Not hosting a game yet. Calm down.");
                 return;
             }
@@ -884,7 +843,7 @@ public class ServerControl implements ApplicationListener{
         });
 
         handler.register("admin", "<add/remove> <username/ID...>", "Make an online user admin", arg -> {
-            if(!state.isGame()){
+            if(!state.is(State.playing)){
                 err("Open the server first.");
                 return;
             }
@@ -943,7 +902,7 @@ public class ServerControl implements ApplicationListener{
         });
 
         handler.register("runwave", "Trigger the next wave.", arg -> {
-            if(!state.isGame()){
+            if(!state.is(State.playing)){
                 err("Not hosting. Host a game first.");
             }else{
                 logic.runWave();
@@ -951,39 +910,8 @@ public class ServerControl implements ApplicationListener{
             }
         });
 
-        handler.register("loadautosave", "Loads the last auto-save.", arg -> {
-            if(state.isGame()){
-                err("Already hosting. Type 'stop' to stop hosting first.");
-                return;
-            }
-
-            Fi newestSave = saveDirectory.findAll(f -> f.name().startsWith("auto_")).min(Fi::lastModified);
-
-            if(newestSave == null){
-                err("No auto-saves found! Type `config autosave true` to enable auto-saves.");
-                return;
-            }
-
-            if(!SaveIO.isSaveValid(newestSave)){
-                err("No (valid) save data found for slot.");
-                return;
-            }
-
-            Core.app.post(() -> {
-                try{
-                    SaveIO.load(newestSave);
-                    state.rules.sector = null;
-                    info("Save loaded.");
-                    state.set(State.playing);
-                    netServer.openServer();
-                }catch(Throwable t){
-                    err("Failed to load save. Outdated or corrupt file.");
-                }
-            });
-        });
-
         handler.register("load", "<slot>", "Load a save from a slot.", arg -> {
-            if(state.isGame()){
+            if(state.is(State.playing)){
                 err("Already hosting. Type 'stop' to stop hosting first.");
                 return;
             }
@@ -1009,7 +937,7 @@ public class ServerControl implements ApplicationListener{
         });
 
         handler.register("save", "<slot>", "Save game state to a slot.", arg -> {
-            if(!state.isGame()){
+            if(!state.is(State.playing)){
                 err("Not hosting. Host a game first.");
                 return;
             }
@@ -1092,35 +1020,6 @@ public class ServerControl implements ApplicationListener{
             }
         });
 
-        handler.register("dos-ban", "[add/remove] [ip]", "Add or remove a DOS ban.", arg -> {
-            if(arg.length == 0){
-                info("DOS bans: @", netServer.admins.dosBlacklist.isEmpty() ? "<none>" : "");
-
-                netServer.admins.dosBlacklist.forEach(address -> {
-                    info("&lw\t" + address);
-                });
-                return;
-            }else if(arg.length == 1){
-                err("Expected either zero or two parameters, but only got one parameter.");
-                return;
-            }
-
-            String action = arg[0].toLowerCase();
-            String ip = arg[1];
-
-            if(action.equals("add")){
-                netServer.admins.blacklistDos(ip);
-                info("Dos banned: @", ip);
-                return;
-            }else if(action.equals("remove")){
-                netServer.admins.unBlacklistDos(ip);
-                info("Removed dos ban: @", ip);
-                return;
-            }
-
-            err("Unrecognized action: @", action);
-        });
-
         mods.eachClass(p -> p.registerServerCommands(handler));
     }
 
@@ -1156,10 +1055,12 @@ public class ServerControl implements ApplicationListener{
     }
 
     /**
-     * Cancels the world load timer task, if it is scheduled. Can be useful for stopping a server or hosting a new game.
+     * @deprecated
+     * Use {@link Maps#setNextMapOverride(Map)} instead.
      */
-    public void cancelPlayTask(){
-        if(lastTask != null) lastTask.cancel();
+    @Deprecated
+    public void setNextMap(Map map){
+        maps.setNextMapOverride(map);
     }
 
     /**
@@ -1177,30 +1078,38 @@ public class ServerControl implements ApplicationListener{
      */
     public void play(boolean wait, Runnable run){
         inGameOverWait = true;
-        cancelPlayTask();
+        if(lastTask != null) lastTask.cancel();
+        
+        Runnable r = () -> {
+            WorldReloader reloader = new WorldReloader();
 
-        Runnable reload = () -> {
-            try{
-                WorldReloader reloader = new WorldReloader();
-                reloader.begin();
+            reloader.begin();
 
-                run.run();
+            run.run();
 
-                state.rules = state.map.applyRules(lastMode);
-                logic.play();
+            state.rules = state.map.applyRules(lastMode);
+            logic.play();
 
-                reloader.end();
-                inGameOverWait = false;
-            }catch(MapException e){
-                err("@: @", e.map.plainName(), e.getMessage());
-                net.closeServer();
-            }
+            reloader.end();
+            inGameOverWait = false;
         };
 
         if(wait){
-            lastTask = Timer.schedule(reload, Config.roundExtraTime.num());
+            lastTask = new Task(){
+                @Override
+                public void run(){
+                    try{
+                        r.run();
+                    }catch(MapException e){
+                        err("@: @", e.map.plainName(), e.getMessage());
+                        net.closeServer();
+                    }
+                }
+            };
+
+            Timer.schedule(lastTask, Config.roundExtraTime.num());
         }else{
-            reload.run();
+            r.run();
         }
     }
 

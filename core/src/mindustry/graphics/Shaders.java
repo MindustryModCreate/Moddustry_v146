@@ -1,7 +1,6 @@
 package mindustry.graphics;
 
 import arc.*;
-import arc.assets.loaders.TextureLoader.*;
 import arc.files.*;
 import arc.graphics.*;
 import arc.graphics.Texture.*;
@@ -33,7 +32,7 @@ public class Shaders{
     public static AtmosphereShader atmosphere;
     public static ShockwaveShader shockwave;
     public static MeshShader mesh;
-    public static Shader unlit, unlitWhite;
+    public static Shader unlit;
     public static Shader screenspace;
 
     public static void init(){
@@ -70,7 +69,6 @@ public class Shaders{
         planetGrid = new PlanetGridShader();
         atmosphere = new AtmosphereShader();
         unlit = new LoadShader("planet", "unlit");
-        unlitWhite = new LoadShader("planet", "unlitwhite");
         screenspace = new LoadShader("screenspace", "screenspace");
 
         //disabled for now...
@@ -110,7 +108,6 @@ public class Shaders{
         public Color ambientColor = Color.white.cpy();
         public Vec3 camDir = new Vec3();
         public Vec3 camPos = new Vec3();
-        public boolean emissive;
         public Planet planet;
 
         public PlanetShader(){
@@ -125,7 +122,6 @@ public class Shaders{
             setUniformf("u_ambientColor", ambientColor.r, ambientColor.g, ambientColor.b);
             setUniformf("u_camdir", camDir);
             setUniformf("u_campos", renderer.planets.cam.position);
-            setUniformf("u_emissive", emissive ? 1f : 0f);
         }
     }
 
@@ -145,7 +141,6 @@ public class Shaders{
             camDir.set(renderer.planets.cam.direction).rotate(Vec3.Y, planet.getRotation());
 
             setUniformf("u_alpha", alpha);
-            setUniformf("u_emissive", 0f);
             setUniformf("u_lightdir", lightDir);
             setUniformf("u_ambientColor", ambientColor.r, ambientColor.g, ambientColor.b);
         }
@@ -237,8 +232,6 @@ public class Shaders{
 
     public static class BlockBuildShader extends LoadShader{
         public float progress;
-        //Alpha changes the opacity of *everything*, while the provided batch color only changes the outline
-        public float alpha = 1f;
         public TextureRegion region = new TextureRegion();
         public float time;
 
@@ -249,18 +242,10 @@ public class Shaders{
         @Override
         public void apply(){
             setUniformf("u_progress", progress);
+            setUniformf("u_uv", region.u, region.v);
+            setUniformf("u_uv2", region.u2, region.v2);
             setUniformf("u_time", time);
-            setUniformf("u_alpha", alpha);
-
-            if(region.texture == null){
-                setUniformf("u_uv", 0f, 0f);
-                setUniformf("u_uv2", 1f, 1f);
-                setUniformf("u_texsize", 1, 1);
-            }else{
-                setUniformf("u_uv", region.u, region.v);
-                setUniformf("u_uv2", region.u2, region.v2);
-                setUniformf("u_texsize", region.texture.width, region.texture.height);
-            }
+            setUniformf("u_texsize", region.texture.width, region.texture.height);
         }
     }
 
@@ -307,12 +292,11 @@ public class Shaders{
         public SpaceShader(String frag){
             super(frag);
 
-            Core.assets.load("sprites/space.png", Texture.class, new TextureParameter(){{
-                magFilter = TextureFilter.linear;
-                minFilter = TextureFilter.mipMapLinearLinear;
-                wrapU = wrapV = TextureWrap.mirroredRepeat;
-                genMipMaps = true;
-            }}).loaded = t -> texture = t;
+            Core.assets.load("sprites/space.png", Texture.class).loaded = t -> {
+                texture = t;
+                texture.setFilter(TextureFilter.linear);
+                texture.setWrap(TextureWrap.mirroredRepeat);
+            };
         }
 
         @Override
@@ -483,6 +467,6 @@ public class Shaders{
     }
 
     public static Fi getShaderFi(String file){
-        return tree.get("shaders/" + file);
+        return Core.files.internal("shaders/" + file);
     }
 }

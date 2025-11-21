@@ -16,7 +16,6 @@ import mindustry.content.*;
 import mindustry.core.*;
 import mindustry.ctype.*;
 import mindustry.logic.*;
-import mindustry.type.*;
 import mindustry.world.blocks.*;
 
 import java.io.*;
@@ -28,9 +27,6 @@ public class ImagePacker{
         Vars.headless = true;
         //makes PNG loading slightly faster
         ArcNativesLoader.load();
-
-        fixSubdirectory("blocks/environment/character-overlay");
-        fixSubdirectory("blocks/environment/rune-overlay");
 
         Core.settings = new MockSettings();
         Log.logger = new NoopLogHandler();
@@ -113,7 +109,7 @@ public class ImagePacker{
         map.each((key, val) -> content2id.put(val.split("\\|")[0], key));
 
         Seq<UnlockableContent> cont = Seq.withArrays(Vars.content.blocks(), Vars.content.items(), Vars.content.liquids(), Vars.content.units(), Vars.content.statusEffects());
-        cont.removeAll(u -> u instanceof ConstructBlock || u == Blocks.air || (u instanceof UnitType t && t.internal));
+        cont.removeAll(u -> u instanceof ConstructBlock || u == Blocks.air);
 
         int minid = 0xF8FF;
         for(String key : map.keys()){
@@ -144,7 +140,7 @@ public class ImagePacker{
 
         Seq<UnlockableContent> lookupCont = new Seq<>();
 
-        for(ContentType t : GlobalVars.writableLookableContent){
+        for(ContentType t : GlobalVars.lookableContent){
             lookupCont.addAll(Vars.content.<UnlockableContent>getBy(t).select(UnlockableContent::logicVisible));
         }
 
@@ -158,7 +154,7 @@ public class ImagePacker{
 
         if(logicidfile.exists()){
             try(DataInputStream in = new DataInputStream(logicidfile.readByteStream())){
-                for(ContentType ctype : GlobalVars.writableLookableContent){
+                for(ContentType ctype : GlobalVars.lookableContent){
                     short amount = in.readShort();
                     for(int i = 0; i < amount; i++){
                         String name = in.readUTF();
@@ -193,7 +189,7 @@ public class ImagePacker{
 
         //write the resulting IDs
         try(DataOutputStream out = new DataOutputStream(logicidfile.write(false, 2048))){
-            for(ContentType t : GlobalVars.writableLookableContent){
+            for(ContentType t : GlobalVars.lookableContent){
                 Seq<UnlockableContent> all = idToContent[t.ordinal()].values().toArray().sort(u -> registered[t.ordinal()].get(u));
                 out.writeShort(all.size);
                 for(UnlockableContent u : all){
@@ -201,15 +197,6 @@ public class ImagePacker{
                 }
             }
         }
-    }
-
-    static void fixSubdirectory(String dir){
-        Fi folder = Fi.get("../../../assets-raw/sprites_out/" + dir);
-        Fi parent = folder.parent();
-        folder.walk(fi -> {
-            fi.moveTo(parent.child(fi.name()));
-        });
-        folder.delete();
     }
 
     static String texname(UnlockableContent c){
@@ -263,11 +250,7 @@ public class ImagePacker{
     }
 
     static void replace(String name, Pixmap image){
-        replace(name, name, image);
-    }
-
-    static void replace(String path, String name, Pixmap image){
-        Fi.get(path + ".png").writePng(image);
+        Fi.get(name + ".png").writePng(image);
         ((GenRegion)Core.atlas.find(name)).path.delete();
     }
 

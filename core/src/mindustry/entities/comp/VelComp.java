@@ -39,10 +39,6 @@ abstract class VelComp implements Posc{
         return null;
     }
 
-    boolean ignoreSolids(){
-        return false;
-    }
-
     /** @return whether this entity can move through a location*/
     boolean canPass(int tileX, int tileY){
         SolidPred s = solidity();

@@ -6,6 +6,7 @@ import arc.util.*;
 import mindustry.*;
 import mindustry.content.*;
 import mindustry.core.*;
+import mindustry.ctype.*;
 import mindustry.game.*;
 import mindustry.gen.*;
 import mindustry.world.*;
@@ -31,7 +32,12 @@ public class PowerTestFixture{
         boolean make = content == null;
 
         if(make){
-            Vars.content = new ContentLoader();
+            Vars.content = new ContentLoader(){
+                @Override
+                public void handleMappableContent(MappableContent content){
+
+                }
+            };
         }
         Vars.state = new GameState();
         Vars.tree = new FileTree();

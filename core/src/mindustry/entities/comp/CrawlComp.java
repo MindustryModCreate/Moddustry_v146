@@ -1,8 +1,10 @@
 package mindustry.entities.comp;
 
 import arc.math.*;
+import arc.math.geom.*;
 import arc.util.*;
 import mindustry.*;
+import mindustry.ai.*;
 import mindustry.annotations.Annotations.*;
 import mindustry.content.*;
 import mindustry.entities.*;
@@ -20,6 +22,7 @@ abstract class CrawlComp implements Posc, Rotc, Hitboxc, Unitc{
     @Import float x, y, speedMultiplier, rotation, hitSize;
     @Import UnitType type;
     @Import Team team;
+    @Import Vec2 vel;
 
     transient Floor lastDeepFloor;
     transient float lastCrawlSlowdown = 1f;
@@ -28,7 +31,13 @@ abstract class CrawlComp implements Posc, Rotc, Hitboxc, Unitc{
     @Replace
     @Override
     public SolidPred solidity(){
-        return ignoreSolids() ? null : EntityCollisions::legsSolid;
+        return EntityCollisions::legsSolid;
+    }
+
+    @Override
+    @Replace
+    public int pathType(){
+        return Pathfinder.costLegs;
     }
 
     @Override
@@ -36,7 +45,7 @@ abstract class CrawlComp implements Posc, Rotc, Hitboxc, Unitc{
     public float floorSpeedMultiplier(){
         Floor on = isFlying() ? Blocks.air.asFloor() : floorOn();
         //TODO take into account extra blocks
-        return ((float)Math.pow(on.isDeep() ? 0.45f : on.speedMultiplier, type.floorMultiplier)) * speedMultiplier * lastCrawlSlowdown;
+        return (on.isDeep() ? 0.45f : on.speedMultiplier) * speedMultiplier * lastCrawlSlowdown;
     }
 
     @Override
@@ -54,7 +63,7 @@ abstract class CrawlComp implements Posc, Rotc, Hitboxc, Unitc{
     @Override
     public void update(){
         if(moving()){
-            segmentRot = Angles.moveToward(segmentRot, rotation, type.segmentRotSpeed * Time.delta);
+            segmentRot = Angles.moveToward(segmentRot, rotation, type.segmentRotSpeed);
 
             int radius = (int)Math.max(0, hitSize / tilesize * 2f);
             int count = 0, solids = 0, deeps = 0;
@@ -97,10 +106,10 @@ abstract class CrawlComp implements Posc, Rotc, Hitboxc, Unitc{
                 lastDeepFloor = null;
             }
 
-            lastCrawlSlowdown = Mathf.lerpDelta(1f, type.crawlSlowdown, Mathf.clamp((float)solids / count / type.crawlSlowdownFrac));
+            lastCrawlSlowdown = Mathf.lerp(1f, type.crawlSlowdown, Mathf.clamp((float)solids / count / type.crawlSlowdownFrac));
         }
         segmentRot = Angles.clampRange(segmentRot, rotation, type.segmentMaxRot);
 
-        crawlTime += deltaLen();
+        crawlTime += vel.len();
     }
 }

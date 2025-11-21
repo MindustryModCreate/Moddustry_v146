@@ -97,12 +97,8 @@ public class MultiPacker implements Disposable{
 
     @Override
     public void dispose(){
-        for(int i = 0; i < PageType.all.length; i ++){
-            var packer = packers[i];
-            //the UI packer's image is later used when merging with the font, don't dispose it
-            if(i != PageType.ui.ordinal()){
-                packer.forceDispose();
-            }
+        for(PixmapPacker packer : packers){
+            packer.dispose();
         }
     }
 
@@ -116,9 +112,11 @@ public class MultiPacker implements Disposable{
         //main page can be massive, but 8192 throws GL_OUT_OF_MEMORY on some GPUs and I can't deal with it yet.
         main(4096),
 
-        environment(4096),
+        //TODO stuff like this throws OOM on some devices
+        environment(4096, 2048),
         ui(4096),
-        rubble(4096, 2048);
+        rubble(4096, 2048),
+        editor(4096, 2048);
 
         public static final PageType[] all = values();
 

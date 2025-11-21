@@ -25,7 +25,6 @@ import mindustry.game.EventType.*;
 import mindustry.gen.*;
 import mindustry.graphics.*;
 import mindustry.logic.*;
-import mindustry.mod.*;
 import mindustry.ui.*;
 import mindustry.ui.dialogs.*;
 import mindustry.ui.fragments.*;
@@ -34,8 +33,6 @@ import static arc.scene.actions.Actions.*;
 import static mindustry.Vars.*;
 
 public class UI implements ApplicationListener, Loadable{
-
-    private static final StringBuilder buffer = new StringBuilder();
     public static String billions, millions, thousands;
 
     public static PixmapPacker packer;
@@ -81,7 +78,7 @@ public class UI implements ApplicationListener, Loadable{
 
     public IntMap<Dialog> followUpMenus;
 
-    public Cursor drillCursor, unloadCursor, targetCursor, repairCursor;
+    public Cursor drillCursor, unloadCursor, targetCursor;
 
     private @Nullable Element lastAnnouncement;
 
@@ -104,6 +101,8 @@ public class UI implements ApplicationListener, Loadable{
 
     @Override
     public void loadSync(){
+        loadColors();
+
         Fonts.outline.getData().markupEnabled = true;
         Fonts.def.getData().markupEnabled = true;
         Fonts.def.setOwnsTexture(false);
@@ -129,9 +128,6 @@ public class UI implements ApplicationListener, Loadable{
 
         Tooltips.getInstance().animations = false;
         Tooltips.getInstance().textProvider = text -> new Tooltip(t -> t.background(Styles.black6).margin(4f).add(text));
-        if(mobile){
-            Tooltips.getInstance().offsetY += Scl.scl(60f);
-        }
 
         Core.settings.setErrorHandler(e -> {
             Log.err(e);
@@ -143,19 +139,16 @@ public class UI implements ApplicationListener, Loadable{
         drillCursor = Core.graphics.newCursor("drill", Fonts.cursorScale());
         unloadCursor = Core.graphics.newCursor("unload", Fonts.cursorScale());
         targetCursor = Core.graphics.newCursor("target", Fonts.cursorScale());
-        repairCursor = Core.graphics.newCursor("repair", Fonts.cursorScale());
     }
 
     @Override
     public Seq<AssetDescriptor> getDependencies(){
-        return Seq.with(new AssetDescriptor<>(Control.class), new AssetDescriptor<>("outline", Font.class), new AssetDescriptor<>("default", Font.class), new AssetDescriptor<>(Mods.class));
+        return Seq.with(new AssetDescriptor<>(Control.class), new AssetDescriptor<>("outline", Font.class), new AssetDescriptor<>("default", Font.class));
     }
 
     @Override
     public void update(){
         if(disableUI || Core.scene == null) return;
-
-        PerfCounter.ui.begin();
 
         Events.fire(Trigger.uiDrawBegin);
 
@@ -163,15 +156,13 @@ public class UI implements ApplicationListener, Loadable{
         Core.scene.draw();
 
         if(Core.input.keyTap(KeyCode.mouseLeft) && Core.scene.hasField()){
-            Element e = Core.scene.getHoverElement();
+            Element e = Core.scene.hit(Core.input.mouseX(), Core.input.mouseY(), true);
             if(!(e instanceof TextField)){
                 Core.scene.setKeyboardFocus(null);
             }
         }
 
         Events.fire(Trigger.uiDrawEnd);
-
-        PerfCounter.ui.end();
     }
 
     @Override
@@ -279,15 +270,8 @@ public class UI implements ApplicationListener, Loadable{
         });
     }
 
-
-    public void showTextInput(String titleText, String text, int textLength, String def, boolean numbers, Cons<String> confirmed, Runnable closed) {
-        showTextInput(titleText, text, textLength, def, numbers, false, confirmed, closed);
-    }
-
-    public void showTextInput(String titleText, String text, int textLength, String def, boolean numbers, boolean allowEmpty, Cons<String> confirmed, Runnable closed){
+    public void showTextInput(String titleText, String text, int textLength, String def, boolean numbers, Cons<String> confirmed, Runnable closed){
         if(mobile){
-            var description = (text.startsWith("@") ? Core.bundle.get(text.substring(1)) : text);
-            var empty = allowEmpty;
             Core.input.getTextInput(new TextInput(){{
                 this.title = (titleText.startsWith("@") ? Core.bundle.get(titleText.substring(1)) : titleText);
                 this.text = def;
@@ -295,8 +279,7 @@ public class UI implements ApplicationListener, Loadable{
                 this.maxLength = textLength;
                 this.accepted = confirmed;
                 this.canceled = closed;
-                this.allowEmpty = empty;
-                this.message = description;
+                this.allowEmpty = false;
             }});
         }else{
             new Dialog(titleText){{
@@ -313,11 +296,11 @@ public class UI implements ApplicationListener, Loadable{
                 buttons.button("@ok", () -> {
                     confirmed.get(field.getText());
                     hide();
-                }).disabled(b -> !allowEmpty && field.getText().isEmpty());
+                }).disabled(b -> field.getText().isEmpty());
 
                 keyDown(KeyCode.enter, () -> {
                     String text = field.getText();
-                    if(allowEmpty || !text.isEmpty()){
+                    if(!text.isEmpty()){
                         confirmed.get(text);
                         hide();
                     }
@@ -599,14 +582,7 @@ public class UI implements ApplicationListener, Loadable{
         Table t = new Table(Styles.black3);
         t.touchable = Touchable.disabled;
         t.margin(8f).add(text).style(Styles.outlineLabel).labelAlign(Align.center);
-        t.update(() -> {
-            t.setPosition(Core.graphics.getWidth()/2f, Core.graphics.getHeight()/2f, Align.center);
-            t.toFront();
-
-            if(state.isMenu() || !ui.hudfrag.shown){
-                t.remove();
-            }
-        });
+        t.update(() -> t.setPosition(Core.graphics.getWidth()/2f, Core.graphics.getHeight()/2f, Align.center));
         t.actions(Actions.fadeOut(duration, Interp.pow4In), Actions.remove());
         t.pack();
         t.act(0.1f);
@@ -642,7 +618,6 @@ public class UI implements ApplicationListener, Loadable{
 
                 int option = 0;
                 for(var optionsRow : options){
-                    if(optionsRow.length == 0) continue;
                     Table buttonRow = table.row().table().get().row();
                     int fullWidth = 400 - (optionsRow.length - 1) * 8; // adjust to count padding as well
                     int width = fullWidth / optionsRow.length;
@@ -694,40 +669,6 @@ public class UI implements ApplicationListener, Loadable{
     public void hideFollowUpMenu(int menuId) {
         if(!followUpMenus.containsKey(menuId)) return;
         followUpMenus.remove(menuId).hide();
-    }
-
-    /**
-     * Finds all :name: in a string and replaces them with the icon, if such exists.
-     * Based on TextFormatter::simpleFormat
-     */
-    public static String formatIcons(String s){
-        if(!s.contains(":")) return s;
-
-        buffer.setLength(0);
-        boolean changed = false;
-
-        boolean checkIcon = false;
-        String[] tokens = s.split(":");
-        for(String token : tokens){
-            if(checkIcon){
-                if(Iconc.codes.containsKey(token)){
-                    buffer.append((char)Iconc.codes.get(token));
-                    changed = true;
-                    checkIcon = false;
-                }else if(Fonts.hasUnicodeStr(token)){
-                    buffer.append(Fonts.getUnicodeStr(token));
-                    changed = true;
-                    checkIcon = false;
-                }else{
-                    buffer.append(":").append(token);
-                }
-            }else{
-                buffer.append(token);
-                checkIcon = true;
-            }
-        }
-
-        return changed ? buffer.toString() : s;
     }
 
     /** Formats time with hours:minutes:seconds. */

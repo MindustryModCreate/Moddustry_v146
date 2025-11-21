@@ -44,7 +44,7 @@ public abstract class DrawBlock{
 
     /** @return the generated icons to be used for this block. */
     public TextureRegion[] icons(Block block){
-        return new TextureRegion[]{};
+        return new TextureRegion[]{block.region};
     }
 
     public final TextureRegion[] finalIcons(Block block){
@@ -55,8 +55,7 @@ public abstract class DrawBlock{
             }
             return out;
         }
-        TextureRegion[] icons = icons(block);
-        return icons.length == 0 ? new TextureRegion[]{Core.atlas.find("error")} : icons;
+        return icons(block);
     }
 
     public GenericCrafter expectCrafter(Block block){

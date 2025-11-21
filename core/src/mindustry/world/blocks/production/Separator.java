@@ -38,14 +38,7 @@ public class Separator extends Block{
         stats.timePeriod = craftTime;
         super.setStats();
 
-        int[] sum = {0};
-        for(var r : results) sum[0] += r.amount;
-
-        stats.add(Stat.output, table -> {
-            for(ItemStack stack : results){
-                table.add(StatValues.displayItemPercent(stack.item, (int)((float)stack.amount / sum[0] * 100), true)).padRight(5);
-            }
-        });
+        stats.add(Stat.output, StatValues.items(item -> Structs.contains(results, i -> i.item == item)));
         stats.add(Stat.productionTime, craftTime / 60f, StatUnit.seconds);
     }
 
@@ -162,7 +155,7 @@ public class Separator extends Block{
                 }
             }
 
-            if(timer(timerDump, dumpTime / timeScale)){
+            if(timer(timerDump, dumpTime)){
                 dump();
             }
         }

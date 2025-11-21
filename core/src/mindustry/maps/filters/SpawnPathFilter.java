@@ -28,7 +28,7 @@ public class SpawnPathFilter extends GenerateFilter{
 
     @Override
     public char icon(){
-        return Iconc.blockCoreZone;
+        return Iconc.blockCommandCenter;
     }
 
     @Override

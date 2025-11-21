@@ -2,7 +2,6 @@ package mindustry.world.blocks.environment;
 
 import arc.graphics.g2d.*;
 import arc.math.*;
-import mindustry.game.*;
 import mindustry.world.*;
 
 /**A type of floor that is overlaid on top of other floors.*/
@@ -11,11 +10,6 @@ public class OverlayFloor extends Floor{
     public OverlayFloor(String name){
         super(name);
         useColor = false;
-    }
-
-    @Override
-    public boolean canPlaceOn(Tile tile, Team team, int rotation){
-        return !wallOre || tile.block().solid;
     }
 
     @Override

@@ -5,7 +5,6 @@ import arc.graphics.g2d.*;
 import arc.scene.ui.layout.*;
 import arc.util.*;
 import arc.util.pooling.*;
-import mindustry.*;
 import mindustry.annotations.Annotations.*;
 import mindustry.gen.*;
 import mindustry.graphics.*;
@@ -13,12 +12,12 @@ import mindustry.ui.*;
 
 /** Component/entity for labels in world space. Useful for servers. Does not save in files - create only on world load. */
 @EntityDef(value = {WorldLabelc.class}, serialize = false)
-@Component(base = true, genInterface = false)
+@Component(base = true)
 public abstract class WorldLabelComp implements Posc, Drawc, Syncc{
     @Import int id;
     @Import float x, y;
 
-    public static final byte flagBackground = 1, flagOutline = 2, flagAlignLeft = 4, flagAlignRight = 8, flagAutoscale = 16;
+    public static final byte flagBackground = 1, flagOutline = 2;
 
     public String text = "sample text";
     public float fontSize = 1f, z = Layer.playerName + 1;
@@ -32,10 +31,10 @@ public abstract class WorldLabelComp implements Posc, Drawc, Syncc{
 
     @Override
     public void draw(){
-        drawAt(text, x, y, z, flags, fontSize, Align.center, (flags & flagAlignLeft) != 0 ? Align.left : (flags & flagAlignRight) != 0 ? Align.right : Align.center);
+        drawAt(text, x, y, z, flags, fontSize);
     }
 
-    public static void drawAt(String text, float x, float y, float layer, int flags, float fontSize, int align, int lineAlign){
+    public static void drawAt(String text, float x, float y, float layer, int flags, float fontSize){
         Draw.z(layer);
         float z = Drawf.text();
 
@@ -44,26 +43,8 @@ public abstract class WorldLabelComp implements Posc, Drawc, Syncc{
 
         boolean ints = font.usesIntegerPositions();
         font.setUseIntegerPositions(false);
-        // Numbers below are obtained by the method of guessing and comparing results to regular labels.
-        font.getData().setScale(0.25f * fontSize / Scl.scl(1f) /
-            ((flags & flagAutoscale) != 0 ? 0.2f * Vars.renderer.camerascale + 0.05f : 1f));
+        font.getData().setScale(0.25f / Scl.scl(1f) * fontSize);
         layout.setText(font, text);
-
-        int border = (flags & flagBackground) != 0 ? 1 : 0;
-
-        if(Align.isBottom(align)){
-            y += layout.height + border * 1.5f;
-        }else if(Align.isTop(align)){
-            y -= border * 1.5f;
-        }else{
-            y += layout.height / 2;
-        }
-
-        if(Align.isLeft(align)){
-            x += layout.width / 2 + border;
-        }else if(Align.isRight(align)){
-            x -= layout.width / 2 + border;
-        }
 
         if((flags & flagBackground) != 0){
             Draw.color(0f, 0f, 0f, 0.3f);
@@ -71,10 +52,8 @@ public abstract class WorldLabelComp implements Posc, Drawc, Syncc{
             Draw.color();
         }
 
-        float tx = Align.isLeft(lineAlign) ? -layout.width * 0.5f : Align.isRight(lineAlign) ? layout.width * 0.5f : 0;
-
         font.setColor(Color.white);
-        font.draw(text, x + tx, y, 0, lineAlign, false);
+        font.draw(text, x, y, 0, Align.center, false);
 
         Draw.reset();
         Pools.free(layout);

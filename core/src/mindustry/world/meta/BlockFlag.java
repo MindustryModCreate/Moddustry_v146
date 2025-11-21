@@ -22,20 +22,15 @@ public enum BlockFlag{
     extinguisher,
     /** Is a drill. */
     drill,
-    /** Force projector block. */
-    shield,
 
     //special, internal identifiers
     launchPad,
     unitCargoUnloadPoint,
     unitAssembler,
-    hasFogRadius,
-    steamVent,
-    blockRepair,
-    synced;
+    hasFogRadius;
 
     public final static BlockFlag[] all = values();
 
     /** Values for logic only. Filters out some internal flags. */
-    public final static BlockFlag[] allLogic = {core, storage, generator, turret, factory, repair, battery, reactor, drill, shield};
+    public final static BlockFlag[] allLogic = {core, storage, generator, turret, factory, repair, battery, reactor};
 }

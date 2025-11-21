@@ -15,7 +15,6 @@ public class ShapePart extends DrawPart{
     public Color color = Color.white;
     public @Nullable Color colorTo;
     public boolean mirror = false;
-    public boolean clampProgress = true;
     public PartProgress progress = PartProgress.warmup;
     public float layer = -1f, layerOffset = 0f;
 
@@ -27,7 +26,7 @@ public class ShapePart extends DrawPart{
 
         Draw.z(Draw.z() + layerOffset);
 
-        float prog = progress.getClamp(params, clampProgress),
+        float prog = progress.getClamp(params),
         baseRot = Time.time * rotateSpeed,
         rad = radiusTo < 0 ? radius : Mathf.lerp(radius, radiusTo, prog),
         str = strokeTo < 0 ? stroke : Mathf.lerp(stroke, strokeTo, prog);

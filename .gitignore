@@ -6,7 +6,6 @@ logs/
 /core/assets/.gifimages/
 /deploy/
 /out/
-ios/libs/
 /desktop/packr-out/
 /desktop/packr-export/
 /desktop/mindustry-saves/
@@ -23,7 +22,6 @@ ios/libs/
 /tools/build/
 /tests/build/
 /server/build/
-ios/libs/
 changelog
 saves/
 /core/assets-raw/fontgen/out/
@@ -45,7 +43,6 @@ steam_appid.txt
 ios/robovm.properties
 packr-out/
 config/
-buildSrc/
 *.gif
 /tests/out
 
@@ -168,6 +165,3 @@ android/libs/
 
 # ignored due to frequent branch conflicts.
 core/assets/logicids.dat
-
-# project files for the sectors
-core/assets-raw/sprites/ui/sectors/*.json

@@ -2,10 +2,8 @@ package mindustry.ai;
 
 import arc.*;
 import arc.func.*;
-import arc.math.*;
 import arc.math.geom.*;
 import arc.struct.*;
-import arc.util.TaskQueue;
 import arc.util.*;
 import mindustry.annotations.Annotations.*;
 import mindustry.core.*;
@@ -17,14 +15,10 @@ import mindustry.world.blocks.environment.*;
 import mindustry.world.blocks.storage.*;
 import mindustry.world.meta.*;
 
-import java.util.*;
-
 import static mindustry.Vars.*;
-import static mindustry.world.meta.BlockFlag.*;
 
 public class Pathfinder implements Runnable{
     private static final long maxUpdate = Time.millisToNanos(8);
-    private static final int neverRefresh = Integer.MAX_VALUE;
     private static final int updateFPS = 60;
     private static final int updateInterval = 1000 / updateFPS;
 
@@ -34,66 +28,44 @@ public class Pathfinder implements Runnable{
     static final int impassable = -1;
 
     public static final int
-    fieldCore = 0,
-    maxFields = 10;
+        fieldCore = 0;
 
     public static final Seq<Prov<Flowfield>> fieldTypes = Seq.with(
-    EnemyCoreField::new
+        EnemyCoreField::new
     );
 
     public static final int
-    costGround = 0,
-    costLegs = 1,
-    costNaval = 2,
-    costNeoplasm = 3,
-    costNone = 4,
-    costHover = 5,
-
-    maxCosts = 8;
+        costGround = 0,
+        costLegs = 1,
+        costNaval = 2;
 
     public static final Seq<PathCost> costTypes = Seq.with(
-    //ground
-    (team, tile) ->
-    (PathTile.allDeep(tile) || ((PathTile.team(tile) == team && !PathTile.teamPassable(tile)) || PathTile.team(tile) == 0) && PathTile.solid(tile)) ? impassable : 1 +
-    PathTile.health(tile) * 5 +
-    (PathTile.nearSolid(tile) ? 2 : 0) +
-    (PathTile.nearLiquid(tile) ? 6 : 0) +
-    (PathTile.deep(tile) ? 6000 : 0) +
-    (PathTile.damages(tile) ? 30 : 0),
+        //ground
+        (team, tile) ->
+            (PathTile.allDeep(tile) || ((PathTile.team(tile) == team && !PathTile.teamPassable(tile)) || PathTile.team(tile) == 0) && PathTile.solid(tile)) ? impassable : 1 +
+            PathTile.health(tile) * 5 +
+            (PathTile.nearSolid(tile) ? 2 : 0) +
+            (PathTile.nearLiquid(tile) ? 6 : 0) +
+            (PathTile.deep(tile) ? 6000 : 0) +
+            (PathTile.damages(tile) ? 30 : 0),
 
-    //legs
-    (team, tile) ->
-    PathTile.legSolid(tile) ? impassable : 1 +
-    (PathTile.deep(tile) ? 6000 : 0) + //leg units can now drown
-    (PathTile.solid(tile) ? 5 : 0),
+        //legs
+        (team, tile) ->
+            PathTile.legSolid(tile) ? impassable : 1 +
+            (PathTile.deep(tile) ? 6000 : 0) + //leg units can now drown
+            (PathTile.solid(tile) ? 5 : 0),
 
-    //water
-    (team, tile) ->
-    (!PathTile.liquid(tile) || PathTile.solid(tile) ? 6000 : 1) +
-    PathTile.health(tile) * 5 +
-    (PathTile.nearGround(tile) || PathTile.nearSolid(tile) ? 14 : 0) +
-    (PathTile.deep(tile) ? 0 : 1) +
-    (PathTile.damages(tile) ? 35 : 0),
-
-    //neoplasm veins
-    (team, tile) ->
-    (PathTile.deep(tile) || (PathTile.team(tile) == 0 && PathTile.solid(tile))) ? impassable : 1 +
-    (PathTile.health(tile) * 3) +
-    (PathTile.nearSolid(tile) ? 2 : 0) +
-    (PathTile.nearLiquid(tile) ? 2 : 0),
-
-    //none (flat cost)
-    (team, tile) -> 1,
-
-    //hover
-    (team, tile) ->
-    (((PathTile.team(tile) == team && !PathTile.teamPassable(tile)) || PathTile.team(tile) == 0) && PathTile.solid(tile)) ? impassable : 1 +
-    PathTile.health(tile) * 5 +
-    (PathTile.nearSolid(tile) ? 2 : 0)
+        //water
+        (team, tile) ->
+            (!PathTile.liquid(tile) ? 6000 : 1) +
+            PathTile.health(tile) * 5 +
+            (PathTile.nearGround(tile) || PathTile.nearSolid(tile) ? 14 : 0) +
+            (PathTile.deep(tile) ? 0 : 1) +
+            (PathTile.damages(tile) ? 35 : 0)
     );
 
     /** tile data, see PathTileStruct - kept as a separate array for threading reasons */
-    int[] tiles = {};
+    int[] tiles = new int[0];
 
     /** maps team, cost, type to flow field*/
     Flowfield[][][] cache;
@@ -104,8 +76,6 @@ public class Pathfinder implements Runnable{
     /** Current pathfinding thread */
     @Nullable Thread thread;
     IntSeq tmpArray = new IntSeq();
-
-    boolean needsRefresh;
 
     public Pathfinder(){
         clearCache();
@@ -144,16 +114,10 @@ public class Pathfinder implements Runnable{
 
         Events.on(ResetEvent.class, event -> stop());
 
-        Events.on(TileChangeEvent.class, event -> {
-            if(state.isEditor()) return;
-
-            updateTile(event.tile);
-        });
+        Events.on(TileChangeEvent.class, event -> updateTile(event.tile));
 
         //remove nearSolid flag for tiles
         Events.on(TilePreChangeEvent.class, event -> {
-            if(state.isEditor()) return;
-
             Tile tile = event.tile;
 
             if(tile.solid()){
@@ -164,7 +128,7 @@ public class Pathfinder implements Runnable{
                         if(!other.solid()){
                             boolean otherNearSolid = false;
                             for(int j = 0; j < 4; j++){
-                                Tile othernear = other.nearby(j);
+                                Tile othernear = other.nearby(i);
                                 if(othernear != null && othernear.solid()){
                                     otherNearSolid = true;
                                     break;
@@ -180,72 +144,31 @@ public class Pathfinder implements Runnable{
                 }
             }
         });
-
-        Events.run(Trigger.afterGameUpdate, () -> {
-            //only refresh periodically (every 2 frames) to batch flowfield updates
-            //TODO: is it worth switching to a timestamp based system instead that updates every X milliseconds?
-            if(needsRefresh && Core.graphics.getFrameId() % 2 == 0){
-                needsRefresh = false;
-
-                //can't iterate through array so use the map, which should not lead to problems
-                for(Flowfield path : mainList){
-                    //paths with a refresh rate should not be updated by tiles changing
-                    if(path != null && path.needsRefresh()){
-                        synchronized(path.targets){
-                            //TODO: this is super slow and forces a refresh for every tile changed!
-                            path.updateTargetPositions();
-                        }
-                    }
-                }
-
-                //mark every flow field as dirty, so it updates when it's done
-                queue.post(() -> {
-                    for(Flowfield data : threadList){
-                        data.dirty = true;
-                    }
-                });
-            }
-        });
     }
 
     private void clearCache(){
-        cache = new Flowfield[256][maxCosts][maxFields];
+        cache = new Flowfield[256][5][5];
     }
 
     /** Packs a tile into its internal representation. */
     public int packTile(Tile tile){
-        boolean nearLiquid = false, nearSolid = false, nearLegSolid = false, nearGround = false, solid = tile.solid(), allDeep = tile.floor().isDeep(), nearDeep = allDeep;
+        boolean nearLiquid = false, nearSolid = false, nearLegSolid = false, nearGround = false, solid = tile.solid(), allDeep = tile.floor().isDeep();
 
         for(int i = 0; i < 4; i++){
             Tile other = tile.nearby(i);
             if(other != null){
                 Floor floor = other.floor();
                 boolean osolid = other.solid();
-                if(floor.isLiquid && floor.isDeep()) nearLiquid = true;
+                if(floor.isLiquid) nearLiquid = true;
                 //TODO potentially strange behavior when teamPassable is false for other teams?
                 if(osolid && !other.block().teamPassable) nearSolid = true;
                 if(!floor.isLiquid) nearGround = true;
-                if(!floor.isDeep()){
-                    allDeep = false;
-                }else{
-                    nearDeep = true;
-                }
+                if(!floor.isDeep()) allDeep = false;
                 if(other.legSolid()) nearLegSolid = true;
 
                 //other tile is now near solid
-                if(solid && !tile.block().teamPassable && other.array() < tiles.length){
+                if(solid && !tile.block().teamPassable){
                     tiles[other.array()] |= PathTile.bitMaskNearSolid;
-                }
-            }
-        }
-
-        //check diagonals for allDeep
-        if(allDeep){
-            for(int i = 0; i < 4; i++){
-                Tile other = tile.nearby(Geometry.d8edge[i]);
-                if(other != null && !other.floor().isDeep()){
-                    allDeep = false;
-                    break;
                 }
             }
         }
@@ -253,20 +176,19 @@ public class Pathfinder implements Runnable{
         int tid = tile.getTeamID();
 
         return PathTile.get(
-        tile.build == null || !solid || tile.block() instanceof CoreBlock ? 0 : Math.min((int)(tile.build.health / 40), 80),
-        tid == 0 && tile.build != null && state.rules.coreCapture ? 255 : tid, //use teamid = 255 when core capture is enabled to mark out derelict structures
-        solid,
-        tile.floor().isLiquid,
-        tile.legSolid(),
-        nearLiquid,
-        nearGround,
-        nearSolid,
-        nearLegSolid,
-        tile.floor().isDeep(),
-        tile.floor().damages(),
-        allDeep,
-        nearDeep,
-        tile.block().teamPassable
+            tile.build == null || !solid || tile.block() instanceof CoreBlock ? 0 : Math.min((int)(tile.build.health / 40), 80),
+            tid == 0 && tile.build != null && state.rules.coreCapture ? 255 : tid, //use teamid = 255 when core capture is enabled to mark out derelict structures
+            solid,
+            tile.floor().isLiquid,
+            tile.legSolid(),
+            nearLiquid,
+            nearGround,
+            nearSolid,
+            nearLegSolid,
+            tile.floor().isDeep(),
+            tile.floor().damageTaken > 0.00001f,
+            allDeep,
+            tile.block().teamPassable
         );
     }
 
@@ -292,7 +214,6 @@ public class Pathfinder implements Runnable{
             thread = null;
         }
         queue.clear();
-        needsRefresh = false;
     }
 
     /** Update a tile in the internal pathfinding grid.
@@ -307,10 +228,21 @@ public class Pathfinder implements Runnable{
             }
         });
 
-        controlPath.updateTile(tile);
+        //can't iterate through array so use the map, which should not lead to problems
+        for(Flowfield path : mainList){
+            if(path != null){
+                synchronized(path.targets){
+                    path.updateTargetPositions();
+                }
+            }
+        }
 
-        //queue a refresh sometime in the future
-        needsRefresh = true;
+        //mark every flow field as dirty, so it updates when it's done
+        queue.post(() -> {
+            for(Flowfield data : threadList){
+                data.dirty = true;
+            }
+        });
     }
 
     /** Thread implementation. */
@@ -364,65 +296,50 @@ public class Pathfinder implements Runnable{
 
     /** Gets next tile to travel to. Main thread only. */
     public @Nullable Tile getTargetTile(Tile tile, Flowfield path){
-        return getTargetTile(tile, path, true);
-    }
-
-    /** Gets next tile to travel to. Main thread only. */
-    public @Nullable Tile getTargetTile(Tile tile, Flowfield path, boolean diagonals){
-        return getTargetTile(tile, path, diagonals, 0);
-    }
-
-    /** Gets next tile to travel to. Main thread only. */
-    public @Nullable Tile getTargetTile(Tile tile, Flowfield path, boolean diagonals, int avoidanceId){
         if(tile == null) return null;
 
         //uninitialized flowfields are not applicable
-        //also ignore paths with no targets, there is no destination
-        if(!path.initialized || path.targets.size == 0){
+        if(!path.initialized){
             return tile;
         }
 
         //if refresh rate is positive, queue a refresh
-        if(path.refreshRate > 0 && path.refreshRate != neverRefresh && Time.timeSinceMillis(path.lastUpdateTime) > path.refreshRate && path.frontier.size == 0){
+        if(path.refreshRate > 0 && Time.timeSinceMillis(path.lastUpdateTime) > path.refreshRate){
             path.lastUpdateTime = Time.millis();
 
             tmpArray.clear();
             path.getPositions(tmpArray);
 
             synchronized(path.targets){
-                path.updateTargetPositions();
+                //make sure the position actually changed
+                if(!(path.targets.size == 1 && tmpArray.size == 1 && path.targets.first() == tmpArray.first())){
+                    path.updateTargetPositions();
 
-                //queue an update
-                queue.post(() -> updateTargets(path));
+                    //queue an update
+                    queue.post(() -> updateTargets(path));
+                }
             }
         }
 
         //use complete weights if possible; these contain a complete flow field that is not being updated
         int[] values = path.hasComplete ? path.completeWeights : path.weights;
-        int res = path.resolution;
-        int ww = path.width;
-        int apos = tile.x/res + tile.y/res * ww;
+        int apos = tile.array();
         int value = values[apos];
-
-        var points = diagonals ? Geometry.d8 : Geometry.d4;
-        int[] avoid = avoidanceId <= 0 ? null : avoidance.getAvoidance();
 
         Tile current = null;
         int tl = 0;
-        for(Point2 point : points){
-            int dx = tile.x + point.x * res, dy = tile.y + point.y * res;
+        for(Point2 point : Geometry.d8){
+            int dx = tile.x + point.x, dy = tile.y + point.y;
 
             Tile other = world.tile(dx, dy);
             if(other == null) continue;
 
-            int packed = dx/res + dy/res * ww;
-            int avoidance = avoid == null ? 0 : avoid[packed] > Integer.MAX_VALUE - avoidanceId ? 1 : 0;
-            int cost = values[packed] + avoidance;
+            int packed = world.packArray(dx, dy);
 
-            if(cost < value && avoidance == 0 && (current == null || cost < tl) && path.passable(packed) &&
-            !(point.x != 0 && point.y != 0 && (!path.passable(((tile.x + point.x)/res + tile.y/res*ww)) || !path.passable((tile.x/res + (tile.y + point.y)/res*ww))))){ //diagonal corner trap
+            if(values[packed] < value && (current == null || values[packed] < tl) && path.passable(packed) &&
+            !(point.x != 0 && point.y != 0 && (!path.passable(world.packArray(tile.x + point.x, tile.y)) || !path.passable(world.packArray(tile.x, tile.y + point.y))))){ //diagonal corner trap
                 current = other;
-                tl = cost;
+                tl = values[packed];
             }
         }
 
@@ -437,21 +354,13 @@ public class Pathfinder implements Runnable{
         //increment search, but do not clear the frontier
         path.search++;
 
-        //search overflow; reset everything.
-        if(path.search >= Short.MAX_VALUE){
-            Arrays.fill(path.searches, (short)0);
-            path.search = 1;
-        }
-
         synchronized(path.targets){
             //add targets
             for(int i = 0; i < path.targets.size; i++){
                 int pos = path.targets.get(i);
 
-                if(pos >= path.weights.length) continue;
-
                 path.weights[pos] = 0;
-                path.searches[pos] = (short)path.search;
+                path.searches[pos] = path.search;
                 path.frontier.addFirst(pos);
             }
         }
@@ -470,7 +379,7 @@ public class Pathfinder implements Runnable{
      */
     private void registerPath(Flowfield path){
         path.lastUpdateTime = Time.millis();
-        path.setup();
+        path.setup(tiles.length);
 
         threadList.add(path);
 
@@ -478,7 +387,9 @@ public class Pathfinder implements Runnable{
         Core.app.post(() -> mainList.add(path));
 
         //fill with impassables by default
-        Arrays.fill(path.weights, impassable);
+        for(int i = 0; i < tiles.length; i++){
+            path.weights[i] = impassable;
+        }
 
         //add targets
         for(int i = 0; i < path.targets.size; i++){
@@ -494,7 +405,6 @@ public class Pathfinder implements Runnable{
         long start = Time.nanos();
 
         int counter = 0;
-        int w = path.width, h = path.height;
 
         while(path.frontier.size > 0){
             int tile = path.frontier.removeLast();
@@ -502,7 +412,7 @@ public class Pathfinder implements Runnable{
             int cost = path.weights[tile];
 
             //pathfinding overflowed for some reason, time to bail. the next block update will handle this, hopefully
-            if(path.frontier.size >= w * h){
+            if(path.frontier.size >= world.width() * world.height()){
                 path.frontier.clear();
                 return;
             }
@@ -510,12 +420,12 @@ public class Pathfinder implements Runnable{
             if(cost != impassable){
                 for(Point2 point : Geometry.d4){
 
-                    int dx = (tile % w) + point.x, dy = (tile / w) + point.y;
+                    int dx = (tile % wwidth) + point.x, dy = (tile / wwidth) + point.y;
 
-                    if(dx < 0 || dy < 0 || dx >= w || dy >= h) continue;
+                    if(dx < 0 || dy < 0 || dx >= wwidth || dy >= wheight) continue;
 
-                    int newPos = dx + dy * w;
-                    int otherCost = path.getCost(tiles, newPos);
+                    int newPos = tile + point.x + point.y * wwidth;
+                    int otherCost = path.cost.getCost(path.team.id, tiles[newPos]);
 
                     if((path.weights[newPos] > cost + otherCost || path.searches[newPos] < path.search) && otherCost != impassable){
                         path.frontier.addFirst(newPos);
@@ -542,34 +452,8 @@ public class Pathfinder implements Runnable{
     }
 
     public static class EnemyCoreField extends Flowfield{
-        private final static BlockFlag[] randomTargets = {storage, generator, launchPad, factory, repair, battery, reactor, drill};
-        private Rand rand = new Rand();
-
         @Override
         protected void getPositions(IntSeq out){
-            if(state.rules.randomWaveAI && team == state.rules.waveTeam){
-                rand.setSeed(state.rules.waves ? state.wave : (int)(state.tick / (5400)) + hashCode());
-
-                //maximum amount of different target flag types they will attack
-                int max = 1;
-
-                for(int attempt = 0; attempt < 5 && max > 0; attempt++){
-                    var targets = indexer.getEnemy(team, randomTargets[rand.random(randomTargets.length - 1)]);
-                    if(!targets.isEmpty()){
-                        boolean any = false;
-                        for(Building other : targets){
-                            if(((other.items != null && other.items.any()) || other.status() != BlockStatus.noInput) && other.block.targetable){
-                                out.add(other.tile.array());
-                                any = true;
-                            }
-                        }
-                        if(any){
-                            max --;
-                        }
-                    }
-                }
-            }
-
             for(Building other : indexer.getEnemy(team, BlockFlag.core)){
                 out.add(other.tile.array());
             }
@@ -602,7 +486,7 @@ public class Pathfinder implements Runnable{
      * Concrete subclasses must specify a way to fetch costs and destinations.
      */
     public static abstract class Flowfield{
-        /** Refresh rate in milliseconds. <= 0 to disable. */
+        /** Refresh rate in milliseconds. Return any number <= 0 to disable. */
         protected int refreshRate;
         /** Team this path is for. Set before using. */
         protected Team team = Team.derelict;
@@ -616,16 +500,12 @@ public class Pathfinder implements Runnable{
         /** costs of getting to a specific tile */
         public int[] weights;
         /** search IDs of each position - the highest, most recent search is prioritized and overwritten */
-        public short[] searches;
+        public int[] searches;
         /** the last "complete" weights of this tilemap. */
         public int[] completeWeights;
 
-        /** Scaling factor. For example, resolution = 2 means tiles are twice as large. */
-        public final int resolution;
-        public final int width, height;
-
         /** search frontier, these are Pos objects */
-        final IntQueue frontier = new IntQueue();
+        IntQueue frontier = new IntQueue();
         /** all target positions; these positions have a cost of 0, and must be synchronized on! */
         final IntSeq targets = new IntSeq();
         /** current search ID */
@@ -635,47 +515,12 @@ public class Pathfinder implements Runnable{
         /** whether this flow field is ready to be used */
         boolean initialized;
 
-        public Flowfield(){
-            this(1);
-        }
-
-        public Flowfield(int resolution){
-            this.resolution = resolution;
-            this.width = Mathf.ceil((float)wwidth / resolution);
-            this.height = Mathf.ceil((float)wheight / resolution);
-        }
-
-        void setup(){
-            int length = width * height;
-
+        void setup(int length){
             this.weights = new int[length];
-            this.searches = new short[length];
+            this.searches = new int[length];
             this.completeWeights = new int[length];
             this.frontier.ensureCapacity((length) / 4);
             this.initialized = true;
-        }
-
-        public int getCost(int[] tiles, int pos){
-            return cost.getCost(team.id, tiles[pos]);
-        }
-
-        public boolean hasTargets(){
-            return targets.size > 0;
-        }
-
-        /** @return the next tile to travel to for this flowfield. Main thread only. */
-        public @Nullable Tile getNextTile(Tile from, boolean diagonals){
-            return pathfinder.getTargetTile(from, this, diagonals);
-        }
-
-        /** @return the next tile to travel to for this flowfield. Main thread only. */
-        public @Nullable Tile getNextTile(Tile from){
-            return pathfinder.getTargetTile(from, this);
-        }
-
-        /** @return the next tile to travel to for this flowfield. Main thread only. */
-        public @Nullable Tile getNextTile(Tile from, int unitAvoidanceId){
-            return pathfinder.getTargetTile(from, this, true, unitAvoidanceId);
         }
 
         public boolean hasCompleteWeights(){
@@ -685,11 +530,6 @@ public class Pathfinder implements Runnable{
         public void updateTargetPositions(){
             targets.clear();
             getPositions(targets);
-        }
-
-        /** @return whether this flow field should be refreshed after the current block update */
-        public boolean needsRefresh(){
-            return refreshRate == 0;
         }
 
         protected boolean passable(int pos){
@@ -733,8 +573,6 @@ public class Pathfinder implements Runnable{
         boolean damages;
         //whether all tiles nearby are deep
         boolean allDeep;
-        //whether it is near deep water
-        boolean nearDeep;
         //block teamPassable is true
         boolean teamPassable;
     }

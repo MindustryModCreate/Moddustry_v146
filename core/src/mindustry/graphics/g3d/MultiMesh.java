@@ -15,11 +15,4 @@ public class MultiMesh implements GenericMesh{
             v.render(params, projection, transform);
         }
     }
-
-    @Override
-    public void dispose(){
-        for(var mesh : meshes){
-            mesh.dispose();
-        }
-    }
 }

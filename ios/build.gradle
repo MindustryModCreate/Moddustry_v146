@@ -4,7 +4,7 @@ buildscript{
     }
 
     dependencies{
-        classpath "com.mobidevelop.robovm:robovm-gradle-plugin:2.3.23"
+        classpath "com.mobidevelop.robovm:robovm-gradle-plugin:2.3.19"
     }
 }
 
@@ -48,12 +48,12 @@ ext{
     mainClassName = "mindustry.ios.IOSLauncher"
 }
 
-tasks.register('copyAssets'){
+task copyAssets(){
     doLast{
         delete{
             delete "assets/"
         }
-
+    
         copy{
             from "../core/assets"
             into "assets/"
@@ -61,16 +61,17 @@ tasks.register('copyAssets'){
     }
 }
 
-tasks.register('copyNatives'){
+task copyNatives(){
     doLast{
         copy{
             from "../../Arc/natives/natives-freetype-ios/libs", "../../Arc/natives/natives-ios/libs"
             into "libs"
         }
+
     }
 }
 
-tasks.register('deploy'){
+task deploy{
     if(System.getProperty("os.name").contains("Mac")) dependsOn copyAssets
     dependsOn createIPA
 }
@@ -84,7 +85,7 @@ launchIOSDevice.dependsOn build
 createIPA.dependsOn build
 
 robovm{
-    archs = "arm64"
+    archs = "thumbv7:arm64"
 
     if(project.hasProperty("signIdentity")) println "iOS Sign Identity: " + project.property("signIdentity")
     if(project.hasProperty("provisioningProfile")) println "iOS Provisioning Profile: " + project.property("provisioningProfile")

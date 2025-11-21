@@ -44,11 +44,6 @@ public class World{
 
         Events.on(WorldLoadEvent.class, e -> {
             tileChanges = -1;
-
-            //make each building check if it can update in the given map area
-            for(var build : Groups.build){
-                build.checkAllowUpdate();
-            }
         });
     }
 
@@ -128,7 +123,7 @@ public class World{
         Tile tile = tiles.get(x, y);
         if(tile == null) return null;
         if(tile.build != null){
-            return tile.build.tile;
+            return tile.build.tile();
         }
         return tile;
     }
@@ -259,19 +254,19 @@ public class World{
     }
 
     public void loadSector(Sector sector){
-        loadSector(sector, new WorldParams());
+        loadSector(sector, 0, true);
     }
 
-    public void loadSector(Sector sector, WorldParams params){
-        setSectorRules(sector, params.saveInfo);
+    public void loadSector(Sector sector, int seedOffset, boolean saveInfo){
+        setSectorRules(sector, saveInfo);
 
         int size = sector.getSize();
         loadGenerator(size, size, tiles -> {
             if(sector.preset != null){
-                sector.preset.generator.generate(tiles, params);
+                sector.preset.generator.generate(tiles);
                 sector.preset.rules.get(state.rules); //apply extra rules
             }else if(sector.planet.generator != null){
-                sector.planet.generator.generate(tiles, sector, params);
+                sector.planet.generator.generate(tiles, sector, seedOffset);
             }else{
                 throw new RuntimeException("Sector " + sector.id + " on planet " + sector.planet.name + " has no generator or preset defined. Provide a planet generator or preset map.");
             }
@@ -279,7 +274,7 @@ public class World{
             state.rules.sector = sector;
         });
 
-        if(params.saveInfo && state.rules.waves){
+        if(saveInfo && state.rules.waves){
             sector.info.waves = state.rules.waves;
         }
 
@@ -289,7 +284,7 @@ public class World{
         }
 
         //reset rules
-        setSectorRules(sector, params.saveInfo);
+        setSectorRules(sector, saveInfo);
 
         if(state.rules.defaultTeam.core() != null){
             sector.info.spawnPosition = state.rules.defaultTeam.core().pos();
@@ -326,6 +321,8 @@ public class World{
         state.rules.cloudColor = sector.planet.landCloudColor;
         state.rules.env = sector.planet.defaultEnv;
         state.rules.planet = sector.planet;
+        state.rules.hiddenBuildItems.clear();
+        state.rules.hiddenBuildItems.addAll(sector.planet.hiddenItems);
         sector.planet.applyRules(state.rules);
         sector.info.resources = content.toSeq();
         sector.info.resources.sort(Structs.comps(Structs.comparing(Content::getContentType), Structs.comparingInt(c -> c.id)));
@@ -463,16 +460,11 @@ public class World{
         return 0;
     }
 
-    public void checkMapArea(int x, int y, int w, int h){
-        for(var team : state.teams.present){
-            for(var build : team.buildings){
-                //reset map-area-based disabled blocks that were not in the previous map area
-                if(!build.enabled && build.block.autoResetEnabled && !Rect.contains(x, y, w, h, build.tile.x, build.tile.y)){
-                    build.enabled = true;
-                }
-
-                //if the map area contracts, disable the block
-                build.checkAllowUpdate();
+    public void checkMapArea(){
+        for(var build : Groups.build){
+            //reset map-area-based disabled blocks.
+            if(!build.enabled && build.block.autoResetEnabled){
+                build.enabled = true;
             }
         }
     }
@@ -579,18 +571,9 @@ public class World{
         }
     }
 
-    public WorldContext makeSectorContext(Sector sector){
-        return new Context(sector);
-    }
-
     private class Context implements WorldContext{
-        private Sector sector;
 
         Context(){}
-
-        Context(Sector sector){
-            this.sector = sector;
-        }
 
         @Override
         public Tile tile(int index){
@@ -622,12 +605,6 @@ public class World{
         @Override
         public void end(){
             endMapLoad();
-        }
-
-        @Nullable
-        @Override
-        public Sector getSector(){
-            return sector;
         }
     }
 

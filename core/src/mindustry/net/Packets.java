@@ -17,8 +17,6 @@ public class Packets{
         nameInUse, idInUse, nameEmpty, customClient, serverClose, vote, typeMismatch,
         whitelist, playerLimit, serverRestarting;
 
-        public static final KickReason[] all = values();
-
         public final boolean quiet;
 
         KickReason(){
@@ -40,9 +38,7 @@ public class Packets{
     }
 
     public enum AdminAction{
-        kick, ban, trace, wave, switchTeam;
-
-        public static final AdminAction[] all = values();
+        kick, ban, trace, wave, switchTeam
     }
 
     /** Generic client connection event. */
@@ -156,11 +152,6 @@ public class Packets{
             for(int i = 0; i < totalMods; i++){
                 mods.add(TypeIO.readString(buffer));
             }
-        }
-
-        @Override
-        public int getPriority(){
-            return priorityHigh;
         }
     }
 }

@@ -1,6 +1,7 @@
 package mindustry.io.versions;
 
 import arc.util.*;
+import arc.util.io.*;
 import mindustry.content.*;
 import mindustry.game.*;
 import mindustry.world.*;
@@ -56,13 +57,12 @@ public abstract class LegacySaveVersion extends LegacyRegionSaveVersion{
                 //do not override occupied cells
                 if(!occupied){
                     tile.setBlock(block);
-                    if(tile.build != null) tile.build.enabled = true;
                 }
 
                 if(block.hasBuilding()){
                     try{
-                        readLegacyShortChunk(stream, (in, len) -> {
-                            byte version = in.b();
+                        readChunk(stream, true, in -> {
+                            byte version = in.readByte();
                             //legacy impl of Building#read()
                             tile.build.health = stream.readUnsignedShort();
                             byte packedrot = stream.readByte();
@@ -72,14 +72,14 @@ public abstract class LegacySaveVersion extends LegacyRegionSaveVersion{
                             tile.setTeam(Team.get(team));
                             tile.build.rotation = rotation;
 
-                            if(tile.build.items != null) tile.build.items.read(in, true);
-                            if(tile.build.power != null) tile.build.power.read(in, true);
-                            if(tile.build.liquids != null) tile.build.liquids.read(in, true);
+                            if(tile.build.items != null) tile.build.items.read(Reads.get(stream), true);
+                            if(tile.build.power != null) tile.build.power.read(Reads.get(stream), true);
+                            if(tile.build.liquids != null) tile.build.liquids.read(Reads.get(stream), true);
                             //skip cons.valid boolean, it's not very important here
                             stream.readByte();
 
                             //read only from subclasses!
-                            tile.build.read(in, version);
+                            tile.build.read(Reads.get(in), version);
                         });
                     }catch(Throwable e){
                         throw new IOException("Failed to read tile entity of block: " + block, e);
@@ -111,7 +111,7 @@ public abstract class LegacySaveVersion extends LegacyRegionSaveVersion{
             int amount = stream.readInt();
             for(int j = 0; j < amount; j++){
                 //simply skip all the entities
-                skipLegacyShortChunk(stream);
+                skipChunk(stream, true);
             }
         }
     }

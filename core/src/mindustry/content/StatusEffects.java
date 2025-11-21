@@ -11,7 +11,7 @@ import mindustry.type.*;
 import static mindustry.Vars.*;
 
 public class StatusEffects{
-    public static StatusEffect none, burning, freezing, unmoving, slow, fast, wet, muddy, melting, sapped, tarred, overdrive, overclock, shielded, shocked, blasted, corroded, boss, sporeSlowed, disarmed, electrified, invincible, dynamic;
+    public static StatusEffect none, burning, freezing, unmoving, slow, fast, wet, muddy, melting, sapped, tarred, overdrive, overclock, shielded, shocked, blasted, corroded, boss, sporeSlowed, disarmed, electrified, invincible;
 
     public static void load(){
 
@@ -61,15 +61,15 @@ public class StatusEffects{
             color = Pal.lightishGray;
             speedMultiplier = 0.4f;
 
-            init(() -> opposite(fast));
+	    init(() -> opposite(fast));
         }};
 
-        fast = new StatusEffect("fast"){{
+	fast = new StatusEffect("fast"){{
             color = Pal.boostTo;
             speedMultiplier = 1.6f;
 
-            init(() -> opposite(slow));
-        }};
+	    init(() -> opposite(slow));
+	}};
 
         wet = new StatusEffect("wet"){{
             color = Color.royal;
@@ -80,8 +80,10 @@ public class StatusEffects{
 
             init(() -> {
                 affinity(shocked, (unit, result, time) -> {
-                    unit.damage(transitionDamage);
+                    float pierceFraction = 0.3f;
 
+                    unit.damagePierce(transitionDamage * pierceFraction);
+                    unit.damage(transitionDamage * (1f - pierceFraction));
                     if(unit.team == state.rules.waveTeam){
                         Events.fire(Trigger.shock);
                     }
@@ -89,7 +91,7 @@ public class StatusEffects{
                 opposite(burning, melting);
             });
         }};
-
+		
         muddy = new StatusEffect("muddy"){{
             color = Color.valueOf("46382a");
             speedMultiplier = 0.94f;
@@ -191,12 +193,8 @@ public class StatusEffects{
         }};
 
         corroded = new StatusEffect("corroded"){{
-            color = Color.valueOf("e4ffd6");
-            intervalDamage = 25f;
-            intervalDamageTime = 30f;
-
-            effectChance = 0.1f;
-            effect = Fx.corrosionVapor;
+            color = Pal.plastanium;
+            damage = 0.1f;
         }};
 
         disarmed = new StatusEffect("disarmed"){{
@@ -206,12 +204,6 @@ public class StatusEffects{
 
         invincible = new StatusEffect("invincible"){{
             healthMultiplier = Float.POSITIVE_INFINITY;
-        }};
-
-        dynamic = new StatusEffect("dynamic"){{
-            show = false;
-            dynamic = true;
-            permanent = true;
         }};
     }
 }

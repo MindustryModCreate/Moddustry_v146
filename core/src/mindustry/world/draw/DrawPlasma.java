@@ -18,8 +18,6 @@ public class DrawPlasma extends DrawFlame{
 
     @Override
     public void load(Block block){
-        block.emitLight = true;
-
         regions = new TextureRegion[plasmas];
         for(int i = 0; i < regions.length; i++){
             regions[i] = Core.atlas.find(block.name + suffix + i);

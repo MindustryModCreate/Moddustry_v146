@@ -6,7 +6,6 @@ import mindustry.game.EventType.*;
 import mindustry.game.*;
 import mindustry.gen.*;
 import mindustry.maps.*;
-import mindustry.mod.*;
 import mindustry.type.*;
 import mindustry.world.blocks.*;
 
@@ -23,8 +22,6 @@ public class GameState{
     public long updateId;
     /** Whether the game is in game over state. */
     public boolean gameOver = false;
-    /** For the campaign, this is whether the map is in a "after game over" state. In this state, the game is always paused. */
-    public boolean afterGameOver = false;
     /** Whether the player's team won the match. */
     public boolean won = false;
     /** Server ticks/second. Only valid in multiplayer. */
@@ -35,16 +32,10 @@ public class GameState{
     public Rules rules = new Rules();
     /** Statistics for this save/game. Displayed after game over. */
     public GameStats stats = new GameStats();
-    /** Markers not linked to objectives. Controlled by world processors. */
-    public MapMarkers markers = new MapMarkers();
-    /** Locale-specific string bundles of current map */
-    public MapLocales mapLocales = new MapLocales();
     /** Global attributes of the environment, calculated by weather. */
     public Attributes envAttrs = new Attributes();
     /** Team data. Gets reset every new game. */
     public Teams teams = new Teams();
-    /** Handles JSON edits of game content. */
-    public ContentPatcher patcher = new ContentPatcher();
     /** Number of enemies in the game; only used clientside in servers. */
     public int enemies;
     /** Map being playtested (not edited!) */
@@ -83,7 +74,7 @@ public class GameState{
     }
 
     public @Nullable Planet getPlanet(){
-        return rules.sector != null ? rules.sector.planet : rules.planet;
+        return rules.sector != null ? rules.sector.planet : null;
     }
 
     public boolean isEditor(){
@@ -91,12 +82,11 @@ public class GameState{
     }
 
     public boolean isPaused(){
-        return state == State.paused;
+        return is(State.paused);
     }
 
-    /** @return whether there is an unpaused game in progress. */
     public boolean isPlaying(){
-        return state == State.playing;
+        return (state == State.playing) || (state == State.paused && !isPaused());
     }
 
     /** @return whether the current state is *not* the menu. */

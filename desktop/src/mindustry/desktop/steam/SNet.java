@@ -107,9 +107,6 @@ public class SNet implements SteamNetworkingCallback, SteamMatchmakingCallback, 
 
         Events.on(WaveEvent.class, e -> updateWave());
         Events.run(Trigger.newGame, this::updateWave);
-
-        Events.on(PlayerIpBanEvent.class, e -> updateBans(e.ip));
-        Events.on(PlayerIpUnbanEvent.class, e -> updateBans(e.ip));
     }
 
     public boolean isSteamClient(){
@@ -210,12 +207,6 @@ public class SNet implements SteamNetworkingCallback, SteamMatchmakingCallback, 
         }
     }
 
-    /** Updates the ban list so that lobbies don't appear for banned players. The list will only be updated when a steam player is banned/unbanned. */
-    void updateBans(String changed){
-        if(changed != null && !changed.startsWith("steam:")) return; //hacky way to ignore non-steam ids
-        smat.setLobbyData(currentLobby, "banned", netServer.admins.bannedIPs.select(ip -> ip.contains("steam:")).reduce(new StringBuilder(), (ip, str) -> str.append(ip.substring(6)).append(',')).toString()); //list of handles split by commas
-    }
-
     @Override
     public void closeServer(){
         provider.closeServer();
@@ -272,7 +263,7 @@ public class SNet implements SteamNetworkingCallback, SteamMatchmakingCallback, 
         //check version
         if(version != Version.build){
             ui.loadfrag.hide();
-            ui.showInfo("[scarlet]" + (version > Version.build ? KickReason.clientOutdated : KickReason.serverOutdated) + "\n[]" +
+            ui.showInfo("[scarlet]" + (version > Version.build ? KickReason.clientOutdated : KickReason.serverOutdated).toString() + "\n[]" +
                 Core.bundle.format("server.versions", Version.build, version));
             smat.leaveLobby(steamIDLobby);
             return;
@@ -330,11 +321,6 @@ public class SNet implements SteamNetworkingCallback, SteamMatchmakingCallback, 
                     String mode = smat.getLobbyData(lobby, "gamemode");
                     //make sure versions are equal, don't list incompatible lobbies
                     if(mode == null || mode.isEmpty() || (Version.build != -1 && Strings.parseInt(smat.getLobbyData(lobby, "version"), -1) != Version.build)) continue;
-
-                    String banList = smat.getLobbyData(lobby, "banned");
-
-                    boolean banned = banList.length() > 0 && Structs.contains(banList.split(","), SVars.user.user.getSteamID().getAccountID() + "");
-
                     Host out = new Host(
                         -1, //invalid ping
                         smat.getLobbyData(lobby, "name"),
@@ -346,7 +332,7 @@ public class SNet implements SteamNetworkingCallback, SteamMatchmakingCallback, 
                         smat.getLobbyData(lobby, "versionType"),
                         Gamemode.valueOf(mode),
                         smat.getLobbyMemberLimit(lobby),
-                        banned ? "[banned]" : "",
+                        "",
                         null
                     );
                     hosts.add(out);
@@ -379,7 +365,6 @@ public class SNet implements SteamNetworkingCallback, SteamMatchmakingCallback, 
             smat.setLobbyData(steamID, "versionType", Version.type);
             smat.setLobbyData(steamID, "wave", state.wave + "");
             smat.setLobbyData(steamID, "gamemode", state.rules.mode().name() + "");
-            updateBans(null);
         }
     }
 
@@ -420,7 +405,7 @@ public class SNet implements SteamNetworkingCallback, SteamMatchmakingCallback, 
         final SteamID sid;
 
         public SteamConnection(SteamID sid){
-            super("steam:" + sid.getAccountID());
+            super(sid.getAccountID() + "");
             this.sid = sid;
             Log.info("Created STEAM connection: @", sid.getAccountID());
         }
@@ -450,12 +435,6 @@ public class SNet implements SteamNetworkingCallback, SteamMatchmakingCallback, 
             //TODO ???
             //snet.getP2PSessionState(sid, state);
             return true;//state.isConnectionActive();
-        }
-
-        @Override
-        protected void kickDisconnect(){
-            //delay the close so the kick packet can be sent on steam
-            Time.runTask(10f, this::close);
         }
 
         @Override

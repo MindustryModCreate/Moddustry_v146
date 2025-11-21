@@ -2,8 +2,6 @@ package mindustry.world.blocks.distribution;
 
 import mindustry.gen.*;
 import mindustry.type.*;
-import mindustry.world.*;
-import mindustry.world.meta.*;
 
 public class DuctBridge extends DirectionBridge{
     public float speed = 5f;
@@ -15,12 +13,6 @@ public class DuctBridge extends DirectionBridge{
         hasItems = true;
         underBullets = true;
         isDuct = true;
-    }
-
-    @Override
-    public void setStats(){
-        super.setStats();
-        stats.add(Stat.itemsMoved, 60f / speed, StatUnit.itemsSecond);
     }
 
     public class DuctBridgeBuild extends DirectionBridgeBuild{

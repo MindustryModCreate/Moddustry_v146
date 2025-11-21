@@ -3,6 +3,7 @@ package mindustry.graphics.g3d;
 import arc.graphics.*;
 import arc.math.*;
 import arc.math.geom.*;
+import arc.util.*;
 import arc.util.noise.*;
 import mindustry.graphics.*;
 import mindustry.type.*;
@@ -18,9 +19,9 @@ public class SunMesh extends HexMesh{
             }
 
             @Override
-            public void getColor(Vec3 position, Color out){
+            public Color getColor(Vec3 position){
                 double height = Math.pow(Simplex.noise3d(0, octaves, persistence, scl, position.x, position.y, position.z), pow) * mag;
-                out.set(colors[Mathf.clamp((int)(height * colors.length), 0, colors.length - 1)]).mul(colorScale);
+                return Tmp.c1.set(colors[Mathf.clamp((int)(height * colors.length), 0, colors.length - 1)]).mul(colorScale);
             }
         }, divisions, Shaders.unlit);
     }

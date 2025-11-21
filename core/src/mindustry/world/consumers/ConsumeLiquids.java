@@ -51,7 +51,7 @@ public class ConsumeLiquids extends Consume{
     @Override
     public float efficiency(Building build){
         float mult = multiplier.get(build);
-        float ed = build.edelta() * build.efficiencyScale();
+        float ed = build.edelta();
         if(ed <= 0.00000001f) return 0f;
         float min = 1f;
         for(var stack : liquids){

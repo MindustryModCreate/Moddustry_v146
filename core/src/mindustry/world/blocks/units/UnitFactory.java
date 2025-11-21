@@ -6,14 +6,11 @@ import arc.graphics.g2d.*;
 import arc.math.*;
 import arc.math.geom.*;
 import arc.scene.style.*;
-import arc.scene.ui.*;
 import arc.scene.ui.layout.*;
 import arc.struct.*;
 import arc.util.*;
 import arc.util.io.*;
 import mindustry.*;
-import mindustry.ai.*;
-import mindustry.ctype.*;
 import mindustry.entities.*;
 import mindustry.entities.units.*;
 import mindustry.game.EventType.*;
@@ -49,50 +46,29 @@ public class UnitFactory extends UnitBlock{
         commandable = true;
         ambientSound = Sounds.respawning;
 
-        config(Integer.class, (UnitFactoryBuild build, Integer i) -> {
+        config(Integer.class, (UnitFactoryBuild tile, Integer i) -> {
             if(!configurable) return;
 
-            if(build.currentPlan == i) return;
-            build.currentPlan = i < 0 || i >= plans.size ? -1 : i;
-            build.progress = 0;
-            if(build.command != null && (build.unit() == null || !build.unit().commands.contains(build.command))){
-                build.command = null;
-            }
+            if(tile.currentPlan == i) return;
+            tile.currentPlan = i < 0 || i >= plans.size ? -1 : i;
+            tile.progress = 0;
         });
 
-        config(UnitType.class, (UnitFactoryBuild build, UnitType val) -> {
+        config(UnitType.class, (UnitFactoryBuild tile, UnitType val) -> {
             if(!configurable) return;
 
             int next = plans.indexOf(p -> p.unit == val);
-            if(build.currentPlan == next) return;
-            build.currentPlan = next;
-            build.progress = 0;
-            if(build.command != null && !val.commands.contains(build.command)){
-                build.command = null;
-            }
+            if(tile.currentPlan == next) return;
+            tile.currentPlan = next;
+            tile.progress = 0;
         });
-
-        config(UnitCommand.class, (UnitFactoryBuild build, UnitCommand command) -> build.command = command);
-        configClear((UnitFactoryBuild build) -> build.command = null);
 
         consume(new ConsumeItemDynamic((UnitFactoryBuild e) -> e.currentPlan != -1 ? plans.get(Math.min(e.currentPlan, plans.size - 1)).requirements : ItemStack.empty));
     }
 
     @Override
     public void init(){
-        initCapacities();
-        super.init();
-    }
-
-    @Override
-    public void afterPatch(){
-        initCapacities();
-        super.afterPatch();
-    }
-
-    public void initCapacities(){
         capacities = new int[Vars.content.items().size];
-        itemCapacity = 10; //unit factories can't control their own capacity externally, setting the value does nothing
         for(UnitPlan plan : plans){
             for(ItemStack stack : plan.requirements){
                 capacities[stack.item.id] = Math.max(capacities[stack.item.id], stack.amount * 2);
@@ -101,6 +77,8 @@ public class UnitFactory extends UnitBlock{
         }
 
         consumeBuilder.each(c -> c.multiplier = b -> state.rules.unitCost(b.team));
+
+        super.init();
     }
 
     @Override
@@ -114,10 +92,10 @@ public class UnitFactory extends UnitBlock{
                 Core.bundle.format("bar.unitcap",
                     Fonts.getUnicodeStr(e.unit().name),
                     e.team.data().countType(e.unit()),
-                    e.unit() == null ? Units.getStringCap(e.team) : (e.unit().useUnitCap ? Units.getStringCap(e.team) : "∞")
+                    Units.getStringCap(e.team)
                 ),
             () -> Pal.power,
-            () -> e.unit() == null ? 0f : (e.unit().useUnitCap ? (float)e.team.data().countType(e.unit()) / Units.getCap(e.team) : 1f)
+            () -> e.unit() == null ? 0f : (float)e.team.data().countType(e.unit()) / Units.getCap(e.team)
         ));
     }
 
@@ -144,7 +122,7 @@ public class UnitFactory extends UnitBlock{
                     }
 
                     if(plan.unit.unlockedNow()){
-                        t.image(plan.unit.uiIcon).size(40).pad(10f).left().scaling(Scaling.fit).with(i -> StatValues.withTooltip(i, plan.unit));
+                        t.image(plan.unit.uiIcon).size(40).pad(10f).left().scaling(Scaling.fit);
                         t.table(info -> {
                             info.add(plan.unit.localizedName).left();
                             info.row();
@@ -159,7 +137,7 @@ public class UnitFactory extends UnitBlock{
                                 }
 
                                 ItemStack stack = plan.requirements[i];
-                                req.add(StatValues.displayItem(stack.item, stack.amount, plan.time, true)).pad(5);
+                                req.add(new ItemDisplay(stack.item, stack.amount, false)).pad(5);
                             }
                         }).right().grow().pad(10f);
                     }else{
@@ -183,15 +161,6 @@ public class UnitFactory extends UnitBlock{
         Draw.rect(topRegion, plan.drawx(), plan.drawy());
     }
 
-    @Override
-    public void getPlanConfigs(Seq<UnlockableContent> options){
-        for(var plan : plans){
-            if(!plan.unit.isBanned()){
-                options.add(plan.unit);
-            }
-        }
-    }
-
     public static class UnitPlan{
         public UnitType unit;
         public ItemStack[] requirements;
@@ -208,34 +177,10 @@ public class UnitFactory extends UnitBlock{
 
     public class UnitFactoryBuild extends UnitBuild{
         public @Nullable Vec2 commandPos;
-        public @Nullable UnitCommand command;
         public int currentPlan = -1;
 
         public float fraction(){
             return currentPlan == -1 ? 0 : progress / plans.get(currentPlan).time;
-        }
-
-        public boolean canSetCommand(){
-            var output = unit();
-            return output != null && output.commands.size > 1 && output.allowChangeCommands &&
-                //to avoid cluttering UI, don't show command selection for "standard" units that only have two commands.
-                !(output.commands.size == 2 && output.commands.get(1) == UnitCommand.enterPayloadCommand);
-        }
-
-        @Override
-        public void created(){
-            //auto-set to the first plan, it's better than nothing.
-            if(currentPlan == -1){
-                currentPlan = plans.indexOf(u -> u.unit.unlockedNow());
-            }
-        }
-
-        @Override
-        public void drawSelect(){
-            super.drawSelect();
-            if(plans.size > 1 && currentPlan != -1 && currentPlan < plans.size){
-                drawItemSelection(plans.get(currentPlan).unit);
-            }
         }
 
         @Override
@@ -255,6 +200,11 @@ public class UnitFactory extends UnitBlock{
         }
 
         @Override
+        public boolean shouldActiveSound(){
+            return shouldConsume();
+        }
+
+        @Override
         public double sense(LAccess sensor){
             if(sensor == LAccess.progress) return Mathf.clamp(fraction());
             if(sensor == LAccess.itemCapacity) return Mathf.round(itemCapacity * state.rules.unitCost(team));
@@ -267,62 +217,6 @@ public class UnitFactory extends UnitBlock{
 
             if(units.any()){
                 ItemSelection.buildTable(UnitFactory.this, table, units, () -> currentPlan == -1 ? null : plans.get(currentPlan).unit, unit -> configure(plans.indexOf(u -> u.unit == unit)), selectionRows, selectionColumns);
-
-                table.row();
-
-                Table commands = new Table();
-                commands.top().left();
-
-                Runnable rebuildCommands = () -> {
-                    commands.clear();
-                    commands.background(null);
-                    var unit = unit();
-                    if(unit != null && canSetCommand()){
-                        commands.background(Styles.black6);
-                        var group = new ButtonGroup<ImageButton>();
-                        group.setMinCheckCount(0);
-                        int i = 0, columns = Mathf.clamp(units.size, 2, selectionColumns);
-                        var list = unit.commands;
-
-                        commands.image(Tex.whiteui, Pal.gray).height(4f).growX().colspan(columns).row();
-
-                        for(var item : list){
-                            ImageButton button = commands.button(item.getIcon(), Styles.clearNoneTogglei, 40f, () -> {
-                                configure(item);
-                            }).tooltip(item.localized()).group(group).get();
-
-                            button.update(() -> button.setChecked(command == item || (command == null && unit.defaultCommand == item)));
-
-                            if(++i % columns == 0){
-                                commands.row();
-                            }
-                        }
-
-                        if(list.size < columns){
-                            for(int j = 0; j < (columns - list.size); j++){
-                                commands.add().size(40f);
-                            }
-                        }
-                    }
-                };
-
-                rebuildCommands.run();
-
-                //Since the menu gets hidden when a new unit is selected, this is unnecessary.
-                /*
-                UnitType[] lastUnit = {unit()};
-
-                commands.update(() -> {
-                    if(lastUnit[0] != unit()){
-                        lastUnit[0] = unit();
-                        rebuildCommands.run();
-                    }
-                });*/
-
-                table.row();
-
-                table.add(commands).fillX().left();
-
             }else{
                 table.table(Styles.black3, t -> t.add("@none").color(Color.lightGray));
             }
@@ -409,14 +303,9 @@ public class UnitFactory extends UnitBlock{
                     progress %= 1f;
 
                     Unit unit = plan.unit.create(team);
-                    if(unit.isCommandable()){
-                        if(commandPos != null){
-                            unit.command().commandPosition(commandPos);
-                        }
-
-                        unit.command().command(command == null && unit.type.defaultCommand != null ? unit.type.defaultCommand : command);
+                    if(commandPos != null && unit.isCommandable()){
+                        unit.command().commandPosition(commandPos);
                     }
-
                     payload = new UnitPayload(unit);
                     payVector.setZero();
                     consume();
@@ -452,7 +341,7 @@ public class UnitFactory extends UnitBlock{
 
         @Override
         public byte version(){
-            return 3;
+            return 2;
         }
 
         @Override
@@ -461,7 +350,6 @@ public class UnitFactory extends UnitBlock{
             write.f(progress);
             write.s(currentPlan);
             TypeIO.writeVecNullable(write, commandPos);
-            TypeIO.writeCommand(write, command);
         }
 
         @Override
@@ -471,10 +359,6 @@ public class UnitFactory extends UnitBlock{
             currentPlan = read.s();
             if(revision >= 2){
                 commandPos = TypeIO.readVecNullable(read);
-            }
-
-            if(revision >= 3){
-                command = TypeIO.readCommand(read);
             }
         }
     }

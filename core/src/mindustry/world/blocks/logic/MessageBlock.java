@@ -12,9 +12,7 @@ import arc.scene.ui.layout.*;
 import arc.util.*;
 import arc.util.io.*;
 import arc.util.pooling.*;
-import mindustry.core.*;
 import mindustry.gen.*;
-import mindustry.logic.*;
 import mindustry.ui.*;
 import mindustry.ui.dialogs.*;
 import mindustry.world.*;
@@ -60,7 +58,7 @@ public class MessageBlock extends Block{
     }
 
     public boolean accessible(){
-        return !privileged || state.rules.editor || state.rules.allowEditWorldProcessors;
+        return !privileged || state.rules.editor;
     }
 
     @Override
@@ -68,12 +66,12 @@ public class MessageBlock extends Block{
         return accessible();
     }
 
-    public class MessageBuild extends Building implements LReadable{
+    public class MessageBuild extends Building{
         public StringBuilder message = new StringBuilder();
 
         @Override
         public void drawSelect(){
-            if(renderer.pixelate) return;
+            if(renderer.pixelator.enabled()) return;
 
             Font font = Fonts.outline;
             GlyphLayout l = Pools.obtain(GlyphLayout.class, GlyphLayout::new);
@@ -81,7 +79,7 @@ public class MessageBlock extends Block{
             font.getData().setScale(1 / 4f / Scl.scl(1f));
             font.setUseIntegerPositions(false);
 
-            String text = message == null || message.length() == 0 ? "[lightgray]" + Core.bundle.get("empty") : UI.formatIcons(message.toString());
+            CharSequence text = message == null || message.length() == 0 ? "[lightgray]" + Core.bundle.get("empty") : message;
 
             l.setText(font, text, Color.white, 90f, Align.left, true);
             float offset = 1f;
@@ -89,7 +87,7 @@ public class MessageBlock extends Block{
             Draw.color(0f, 0f, 0f, 0.2f);
             Fill.rect(x, y - tilesize/2f - l.height/2f - offset, l.width + offset*2f, l.height + offset*2f);
             Draw.color();
-            font.setColor(message.length() == 0 ? Color.lightGray : Color.white);
+            font.setColor(Color.white);
             font.draw(text, x - l.width/2f, y - tilesize/2f - offset, 90f, Align.left, true);
             font.setUseIntegerPositions(ints);
 
@@ -107,9 +105,8 @@ public class MessageBlock extends Block{
         public void buildConfiguration(Table table){
             table.button(Icon.pencil, Styles.cleari, () -> {
                 if(mobile){
-                    var contents = this.message.toString();
                     Core.input.getTextInput(new TextInput(){{
-                        text = contents;
+                        text = message.toString();
                         multiline = true;
                         maxLength = maxTextLength;
                         accepted = str -> {
@@ -164,25 +161,6 @@ public class MessageBlock extends Block{
         @Override
         public Cursor getCursor(){
             return !accessible() ? SystemCursor.arrow : super.getCursor();
-        }
-
-        @Override
-        public boolean readable(LExecutor exec){
-            return isValid();
-        }
-
-        @Override
-        public void read(LVar position, LVar output){
-            int address = position.numi();
-            output.setnum(address < 0 || address >= message.length() ? Double.NaN : message.charAt(address));
-        }
-
-        @Override
-        public double sense(LAccess sensor){
-            return switch(sensor){
-                case bufferSize -> message.length();
-                default -> super.sense(sensor);
-            };
         }
 
         @Override

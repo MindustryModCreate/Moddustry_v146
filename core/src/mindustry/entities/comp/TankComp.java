@@ -11,15 +11,14 @@ import mindustry.game.*;
 import mindustry.gen.*;
 import mindustry.type.*;
 import mindustry.world.*;
-import mindustry.world.blocks.*;
 import mindustry.world.blocks.environment.*;
 
 import static mindustry.Vars.*;
 
 @Component
-abstract class TankComp implements Posc, Hitboxc, Unitc, ElevationMovec{
+abstract class TankComp implements Posc, Flyingc, Hitboxc, Unitc, ElevationMovec{
     @Import float x, y, hitSize, rotation, speedMultiplier;
-    @Import boolean disarmed;
+    @Import boolean hovering;
     @Import UnitType type;
     @Import Team team;
 
@@ -27,7 +26,6 @@ abstract class TankComp implements Posc, Hitboxc, Unitc, ElevationMovec{
 
     transient float treadTime;
     transient boolean walked;
-    transient Floor lastDeepFloor;
 
     @Override
     public void update(){
@@ -52,41 +50,25 @@ abstract class TankComp implements Posc, Hitboxc, Unitc, ElevationMovec{
             }
         }
 
-        lastDeepFloor = null;
-        boolean anyNonDeep = false;
-
         //calculate overlapping tiles so it slows down when going "over" walls
-        int r = Math.max((int)(hitSize * 0.75f / tilesize), 0);
+        int r = Math.max(Math.round(hitSize * 0.6f / tilesize), 1);
 
         int solids = 0, total = (r*2+1)*(r*2+1);
         for(int dx = -r; dx <= r; dx++){
             for(int dy = -r; dy <= r; dy++){
                 Tile t = Vars.world.tileWorld(x + dx*tilesize, y + dy*tilesize);
-                if(t == null || t.solid()){
+                if(t == null ||  t.solid()){
                     solids ++;
                 }
 
-                if(t != null && t.floor().isDeep()){
-                    lastDeepFloor = t.floor();
-                }else{
-                    anyNonDeep = true;
-                }
-
-                if(type.crushDamage > 0 && !disarmed && (walked || deltaLen() >= 0.01f) && t != null
+                //TODO should this apply to the player team(s)? currently PvE due to balancing
+                if(type.crushDamage > 0 && (walked || deltaLen() >= 0.01f) && t != null && t.build != null && t.build.team != team
                     //damage radius is 1 tile smaller to prevent it from just touching walls as it passes
                     && Math.max(Math.abs(dx), Math.abs(dy)) <= r - 1){
 
-                    if(t.build != null && t.build.team != team){
-                        t.build.damage(team, type.crushDamage * Time.delta * t.block().crushDamageMultiplier * state.rules.unitDamage(team));
-                    }else if(t.block().unitMoveBreakable){
-                        ConstructBlock.deconstructFinish(t, t.block(), self());
-                    }
+                    t.build.damage(team, type.crushDamage * Time.delta * t.block().crushDamageMultiplier * state.rules.unitDamage(team));
                 }
             }
-        }
-
-        if(anyNonDeep){
-            lastDeepFloor = null;
         }
 
         lastSlowdown = Mathf.lerp(1f, type.crawlSlowdown, Mathf.clamp((float)solids / total / type.crawlSlowdownFrac));
@@ -102,15 +84,25 @@ abstract class TankComp implements Posc, Hitboxc, Unitc, ElevationMovec{
     @Override
     @Replace
     public float floorSpeedMultiplier(){
-        Floor on = isFlying() || type.hovering ? Blocks.air.asFloor() : floorOn();
+        Floor on = isFlying() || hovering ? Blocks.air.asFloor() : floorOn();
         //TODO take into account extra blocks
-        return (float)Math.pow(on.speedMultiplier, type.floorMultiplier) * speedMultiplier * lastSlowdown;
+        return on.speedMultiplier * speedMultiplier * lastSlowdown;
     }
 
     @Replace
     @Override
     public @Nullable Floor drownFloor(){
-        return canDrown() ? lastDeepFloor : null;
+        //tanks can only drown when all the nearby floors are deep
+        //TODO implement properly
+        if(hitSize >= 12 && canDrown()){
+            for(Point2 p : Geometry.d8){
+                Floor f = world.floorWorld(x + p.x * tilesize, y + p.y * tilesize);
+                if(!f.isDeep()){
+                    return null;
+                }
+            }
+        }
+        return canDrown() ? floorOn() : null;
     }
 
     @Override

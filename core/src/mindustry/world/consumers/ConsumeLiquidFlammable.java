@@ -1,7 +1,6 @@
 package mindustry.world.consumers;
 
-import mindustry.type.*;
-import mindustry.world.meta.*;
+import mindustry.gen.*;
 
 public class ConsumeLiquidFlammable extends ConsumeLiquidFilter{
     public float minFlammability;
@@ -21,12 +20,8 @@ public class ConsumeLiquidFlammable extends ConsumeLiquidFilter{
     }
 
     @Override
-    public void display(Stats stats){
-        stats.add(booster ? Stat.booster : Stat.input, StatValues.liquidEffMultiplier(l -> l.flammability, amount * 60f, filter));
-    }
-
-    @Override
-    public float liquidEfficiencyMultiplier(Liquid liquid){
-        return liquid.flammability;
+    public float efficiencyMultiplier(Building build){
+        var liq = getConsumed(build);
+        return liq == null ? 0f : liq.flammability;
     }
 }

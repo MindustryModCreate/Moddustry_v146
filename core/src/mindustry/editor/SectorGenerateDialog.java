@@ -7,7 +7,6 @@ import mindustry.graphics.*;
 import mindustry.type.*;
 import mindustry.ui.*;
 import mindustry.ui.dialogs.*;
-import mindustry.world.*;
 
 import static mindustry.Vars.*;
 
@@ -94,11 +93,7 @@ public class SectorGenerateDialog extends BaseDialog{
                 var preset = sectorobj.preset;
                 sectorobj.preset = null;
 
-                logic.reset(); //TODO: is this a good idea? all rules and map state are cleared, but it fixes inconsistent gen
-                var params = new WorldParams();
-                params.seedOffset = seed;
-                params.saveInfo = false;
-                world.loadSector(sectorobj, params);
+                world.loadSector(sectorobj, seed, false);
 
                 sectorobj.preset = preset;
 

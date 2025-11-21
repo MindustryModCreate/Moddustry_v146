@@ -1,7 +1,6 @@
 package mindustry.graphics;
 
 import arc.*;
-import arc.assets.loaders.TextureLoader.*;
 import arc.graphics.*;
 import arc.graphics.Texture.*;
 import arc.graphics.g2d.*;
@@ -89,15 +88,14 @@ public class EnvRenderers{
             Draw.blend();
         });
 
-        Core.assets.load("sprites/distortAlpha.png", Texture.class, new TextureParameter(){{
-            magFilter = TextureFilter.linear;
-            minFilter = TextureFilter.mipMapLinearLinear;
-            wrapU = wrapV = TextureWrap.repeat;
-            genMipMaps = true;
-        }});
+        Core.assets.load("sprites/distortAlpha.png", Texture.class);
 
         renderer.addEnvRenderer(Env.scorching, () -> {
             Texture tex = Core.assets.get("sprites/distortAlpha.png", Texture.class);
+            if(tex.getMagFilter() != TextureFilter.linear){
+                tex.setFilter(TextureFilter.linear);
+                tex.setWrap(TextureWrap.repeat);
+            }
 
             //TODO layer looks better? should not be conditional
             Draw.z(state.rules.fog ? Layer.fogOfWar + 1 : Layer.weather - 1);

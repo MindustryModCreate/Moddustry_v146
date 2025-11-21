@@ -46,7 +46,6 @@ public class RegenProjector extends Block{
         suppressable = true;
         envEnabled |= Env.space;
         rotateDraw = false;
-        flags = EnumSet.of(BlockFlag.blockRepair);
     }
 
     @Override
@@ -98,7 +97,7 @@ public class RegenProjector extends Block{
             stats.add(Stat.booster, StatValues.itemBoosters(
                 "{0}" + StatUnit.timesSpeed.localized(),
                 stats.timePeriod, optionalMultiplier, 0f,
-                cons.items)
+                cons.items, this::consumesItem)
             );
         }
     }

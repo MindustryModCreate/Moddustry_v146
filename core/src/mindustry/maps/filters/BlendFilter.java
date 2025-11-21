@@ -27,7 +27,7 @@ public class BlendFilter extends GenerateFilter{
 
     @Override
     public char icon(){
-        return Iconc.blockSandFloor;
+        return Iconc.blockSand;
     }
 
     @Override

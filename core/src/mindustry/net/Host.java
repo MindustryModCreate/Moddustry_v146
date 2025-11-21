@@ -14,25 +14,20 @@ public class Host{
     public final String versionType;
     public final Gamemode mode;
     public final @Nullable String modeName;
-    public int ping, port;
+    public int ping, port = Vars.port;
 
-    public Host(int ping, String name, String address, int port, String mapname, int wave, int players, int version, String versionType, Gamemode mode, int playerLimit, String description, String modeName){
+    public Host(int ping, String name, String address, String mapname, int wave, int players, int version, String versionType, Gamemode mode, int playerLimit, String description, String modeName){
         this.ping = ping;
         this.name = name;
         this.address = address;
-        this.port = port;
+        this.players = players;
         this.mapname = mapname;
         this.wave = wave;
-        this.players = players;
         this.version = version;
         this.versionType = versionType;
-        this.mode = mode;
         this.playerLimit = playerLimit;
+        this.mode = mode;
         this.description = description;
         this.modeName = modeName;
-    }
-
-    public Host(int ping, String name, String address, String mapname, int wave, int players, int version, String versionType, Gamemode mode, int playerLimit, String description, String modeName){
-        this(ping, name, address, Vars.port, mapname, wave, players, version, versionType, mode, playerLimit, description, modeName);
     }
 }

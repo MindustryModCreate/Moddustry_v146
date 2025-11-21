@@ -65,15 +65,6 @@ public class Sector{
         }
     }
 
-    public boolean isNear(Sector other){
-        for(var tile : tile.tiles){
-            if(planet.getSector(tile) == other){
-                return true;
-            }
-        }
-        return false;
-    }
-
     /** Displays threat as a formatted string. */
     public String displayThreat(){
         float step = 0.25f;
@@ -146,7 +137,7 @@ public class Sector{
     }
 
     public String name(){
-        if(preset != null && info.name == null && preset.requireUnlock) return preset.localizedName;
+        if(preset != null && info.name == null) return preset.localizedName;
         //single-sector "planets" use their own name for the sector name.
         if(info.name == null && planet.sectors.size == 1){
             return planet.localizedName;
@@ -161,7 +152,7 @@ public class Sector{
 
     @Nullable
     public TextureRegion icon(){
-        return info.contentIcon != null ? info.contentIcon.uiIcon : info.icon == null ? (preset != null && preset.requireUnlock && preset.uiIcon.found() && preset.unlocked() ? preset.uiIcon : null) : Fonts.getLargeIcon(info.icon);
+        return info.contentIcon != null ? info.contentIcon.uiIcon : info.icon == null ? null : Fonts.getLargeIcon(info.icon);
     }
 
     @Nullable
@@ -172,7 +163,7 @@ public class Sector{
     }
 
     public boolean isCaptured(){
-        if(isBeingPlayed()) return !state.rules.waves && !state.rules.attackMode;
+        if(isBeingPlayed()) return !info.waves && !info.attack;
         return save != null && !info.waves && !info.attack;
     }
 
@@ -245,7 +236,7 @@ public class Sector{
 
     /** Projects this sector onto a 4-corner square for use in map gen.
      * Allocates a new object. Do not call in the main loop. */
-    protected SectorRect makeRect(){
+    private SectorRect makeRect(){
         Vec3[] corners = new Vec3[tile.corners.length];
         for(int i = 0; i < corners.length; i++){
             corners[i] = tile.corners[i].v.cpy().setLength(planet.radius);

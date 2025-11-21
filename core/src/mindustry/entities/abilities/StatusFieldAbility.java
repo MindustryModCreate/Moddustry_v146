@@ -1,17 +1,15 @@
 package mindustry.entities.abilities;
 
-import arc.*;
-import arc.graphics.*;
 import arc.math.*;
-import arc.scene.ui.layout.*;
+import arc.scene.ui.layout.Table;
 import arc.util.*;
 import mindustry.content.*;
 import mindustry.entities.*;
 import mindustry.gen.*;
-import mindustry.graphics.*;
 import mindustry.type.*;
+import mindustry.world.meta.*;
 
-import static mindustry.Vars.*;
+import static mindustry.Vars.tilesize;
 
 public class StatusFieldAbility extends Ability{
     public StatusEffect effect;
@@ -21,7 +19,6 @@ public class StatusFieldAbility extends Ability{
     public Effect activeEffect = Fx.overdriveWave;
     public float effectX, effectY;
     public boolean parentizeEffects, effectSizeParam = true;
-    public Color color = Pal.accent;
 
     protected float timer;
 
@@ -36,12 +33,11 @@ public class StatusFieldAbility extends Ability{
 
     @Override
     public void addStats(Table t){
-        super.addStats(t);
-        t.add(Core.bundle.format("bullet.range", Strings.autoFixed(range / tilesize, 2)));
+        t.add("[lightgray]" + Stat.reload.localized() + ": [white]" + Strings.autoFixed(60f / reload, 2) + " " + StatUnit.perSecond.localized());
         t.row();
-        t.add(abilityStat("firingrate", Strings.autoFixed(60f / reload, 2)));
+        t.add("[lightgray]" + Stat.shootRange.localized() + ": [white]" +  Strings.autoFixed(range / tilesize, 2) + " " + StatUnit.blocks.localized());
         t.row();
-        t.add((effect.hasEmoji() ? effect.emoji() : "") + "[stat]" + effect.localizedName);
+        t.add(effect.emoji() + " " + effect.localizedName);
     }
 
     @Override
@@ -55,7 +51,7 @@ public class StatusFieldAbility extends Ability{
             });
 
             float x = unit.x + Angles.trnsx(unit.rotation, effectY, effectX), y = unit.y + Angles.trnsy(unit.rotation, effectY, effectX);
-            activeEffect.at(x, y, effectSizeParam ? range : unit.rotation, color, parentizeEffects ? unit : null);
+            activeEffect.at(x, y, effectSizeParam ? range : unit.rotation, parentizeEffects ? unit : null);
 
             timer = 0f;
         }

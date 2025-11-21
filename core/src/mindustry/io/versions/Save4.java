@@ -1,7 +1,5 @@
 package mindustry.io.versions;
 
-import mindustry.gen.*;
-
 import java.io.*;
 
 /** This version only reads entities, no entity ID mappings. */
@@ -14,7 +12,7 @@ public class Save4 extends LegacySaveVersion2{
     @Override
     public void readEntities(DataInput stream) throws IOException{
         readTeamBlocks(stream);
-        readWorldEntities(stream, EntityMapping.idMap);
+        readWorldEntities(stream);
     }
 
 }

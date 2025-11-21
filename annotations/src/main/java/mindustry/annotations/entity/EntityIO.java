@@ -227,7 +227,7 @@ public class EntityIO{
 
         if(BaseProcessor.isPrimitive(type)){
             s(type.equals("boolean") ? "bool" : type.charAt(0) + "", field);
-        }else if(instanceOf(type, "mindustry.ctype.Content") && !type.equals("mindustry.ai.UnitStance") && !type.equals("mindustry.ai.UnitCommand")){
+        }else if(instanceOf(type, "mindustry.ctype.Content")){
             if(write){
                 s("s", field + ".id");
             }else{

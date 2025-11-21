@@ -19,6 +19,8 @@ import mindustry.world.meta.*;
 import static mindustry.Vars.*;
 
 public class OverdriveProjector extends Block{
+    public final int timerUse = timers++;
+
     public @Load("@-top") TextureRegion topRegion;
     public float reload = 60f;
     public float range = 80f;
@@ -68,7 +70,7 @@ public class OverdriveProjector extends Block{
 
         if(hasBoost && findConsumer(f -> f instanceof ConsumeItems) instanceof ConsumeItems items){
             stats.remove(Stat.booster);
-            stats.add(Stat.booster, StatValues.itemBoosters("+{0}%", stats.timePeriod, speedBoostPhase * 100f, phaseRangeBoost, items.items));
+            stats.add(Stat.booster, StatValues.itemBoosters("+{0}%", stats.timePeriod, speedBoostPhase * 100f, phaseRangeBoost, items.items, this::consumesItem));
         }
     }
     
@@ -79,7 +81,7 @@ public class OverdriveProjector extends Block{
     }
 
     public class OverdriveBuild extends Building implements Ranged{
-        public float heat, charge = Mathf.random(reload), phaseHeat, smoothEfficiency, useProgress;
+        public float heat, charge = Mathf.random(reload), phaseHeat, smoothEfficiency;
 
         @Override
         public float range(){
@@ -108,13 +110,8 @@ public class OverdriveProjector extends Block{
                 indexer.eachBlock(this, realRange, other -> other.block.canOverdrive, other -> other.applyBoost(realBoost(), reload + 1f));
             }
 
-            if(efficiency > 0){
-                useProgress += delta();
-            }
-
-            if(useProgress >= useTime){
+            if(timer(timerUse, useTime) && efficiency > 0){
                 consume();
-                useProgress %= useTime;
             }
         }
 

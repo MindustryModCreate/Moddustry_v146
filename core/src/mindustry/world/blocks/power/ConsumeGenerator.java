@@ -3,7 +3,6 @@ package mindustry.world.blocks.power;
 import arc.*;
 import arc.graphics.*;
 import arc.math.*;
-import arc.struct.*;
 import arc.util.*;
 import mindustry.content.*;
 import mindustry.entities.*;
@@ -22,7 +21,6 @@ public class ConsumeGenerator extends PowerGenerator{
     public float effectChance = 0.01f;
     public Effect generateEffect = Fx.none, consumeEffect = Fx.none;
     public float generateEffectRange = 3f;
-    public float baseLightRadius = 65f;
 
     public @Nullable LiquidStack outputLiquid;
     /** If true, this block explodes when outputLiquid exceeds capacity. */
@@ -30,8 +28,6 @@ public class ConsumeGenerator extends PowerGenerator{
 
     public @Nullable ConsumeItemFilter filterItem;
     public @Nullable ConsumeLiquidFilter filterLiquid;
-    /** Multiplies the itemDuration for a given item. */
-    public ObjectFloatMap<Item> itemDurationMultipliers = new ObjectFloatMap<>();
 
     public ConsumeGenerator(String name){
         super(name);
@@ -51,11 +47,6 @@ public class ConsumeGenerator extends PowerGenerator{
         filterItem = findConsumer(c -> c instanceof ConsumeItemFilter);
         filterLiquid = findConsumer(c -> c instanceof ConsumeLiquidFilter);
 
-        //pass along the duration multipliers to the consumer, so it can display them properly
-        if(filterItem instanceof ConsumeItemEfficiency eff){
-            eff.itemDurationMultipliers = itemDurationMultipliers;
-        }
-
         if(outputLiquid != null){
             outputsLiquid = true;
             hasLiquids = true;
@@ -65,23 +56,14 @@ public class ConsumeGenerator extends PowerGenerator{
             explosionPuddleLiquid = outputLiquid.liquid;
         }
 
+        //TODO hardcoded
         emitLight = true;
-        lightRadius = baseLightRadius * size;
+        lightRadius = 65f * size;
         super.init();
     }
 
     @Override
-    public void afterPatch(){
-        super.afterPatch();
-
-        filterItem = findConsumer(c -> c instanceof ConsumeItemFilter);
-        filterLiquid = findConsumer(c -> c instanceof ConsumeLiquidFilter);
-        if(filterItem instanceof ConsumeItemEfficiency eff) eff.itemDurationMultipliers = itemDurationMultipliers;
-    }
-
-    @Override
     public void setStats(){
-        stats.timePeriod = itemDuration;
         super.setStats();
 
         if(hasItems){
@@ -94,7 +76,7 @@ public class ConsumeGenerator extends PowerGenerator{
     }
 
     public class ConsumeGeneratorBuild extends GeneratorBuild{
-        public float warmup, totalTime, efficiencyMultiplier = 1f, itemDurationMultiplier = 1;
+        public float warmup, totalTime, efficiencyMultiplier = 1f;
 
         @Override
         public void updateEfficiencyMultiplier(){
@@ -121,11 +103,6 @@ public class ConsumeGenerator extends PowerGenerator{
                 generateEffect.at(x + Mathf.range(generateEffectRange), y + Mathf.range(generateEffectRange));
             }
 
-            //make sure the multiplier doesn't change when there is nothing to consume while it's still running
-            if(filterItem != null && valid && itemDurationMultipliers.size > 0 && filterItem.getConsumed(this) != null){
-                itemDurationMultiplier = itemDurationMultipliers.get(filterItem.getConsumed(this), 1);
-            }
-
             //take in items periodically
             if(hasItems && valid && generateTime <= 0f){
                 consume();
@@ -145,7 +122,7 @@ public class ConsumeGenerator extends PowerGenerator{
             }
 
             //generation time always goes down, but only at the end so consumeTriggerValid doesn't assume fake items
-            generateTime -= delta() / (itemDuration * itemDurationMultiplier);
+            generateTime -= delta() / itemDuration;
         }
 
         @Override

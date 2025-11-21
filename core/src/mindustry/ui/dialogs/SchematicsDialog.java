@@ -71,13 +71,6 @@ public class SchematicsDialog extends BaseDialog{
                 rebuildPane.run();
             }).growX().get();
             searchField.setMessageText("@schematic.search");
-            searchField.clicked(KeyCode.mouseRight, () -> {
-                if(!search.isEmpty()){
-                    search = "";
-                    searchField.clearText();
-                    rebuildPane.run();
-                }
-            });
         }).fillX().padBottom(4);
 
         cont.row();
@@ -405,7 +398,6 @@ public class SchematicsDialog extends BaseDialog{
             closeOnBack();
             setFillParent(true);
 
-            //TODO: use IconSelectDialog
             cont.pane(t -> {
                 resized(true, () -> {
                     t.clearChildren();
@@ -415,7 +407,7 @@ public class SchematicsDialog extends BaseDialog{
                     int cols = (int)Math.min(20, Core.graphics.getWidth() / Scl.scl(52f));
 
                     int i = 0;
-                    for(String icon : accessibleIcons){
+                    for(String icon : PlanetDialog.defaultIcons){
                         String out = (char)Iconc.codes.get(icon) + "";
                         if(tags.contains(out)) continue;
 
@@ -471,13 +463,10 @@ public class SchematicsDialog extends BaseDialog{
                 Table current = new Table().left();
 
                 for(var tag : tags){
-                    float si = 40f;
 
-                    var next = new Table(Tex.whiteui, n -> {
-                        n.setColor(Pal.gray);
-                        n.margin(5f);
-
-                        n.table(move -> {
+                    var next = new Table(n -> {
+                        n.table(Tex.pane, move -> {
+                            move.margin(2);
 
                             //move up
                             move.button(Icon.upOpen, Styles.emptyi, () -> {
@@ -487,7 +476,7 @@ public class SchematicsDialog extends BaseDialog{
                                     tagsChanged();
                                     rebuild[0].run();
                                 }
-                            }).size(si).tooltip("@editor.moveup").row();
+                            }).tooltip("@editor.moveup").row();
                             //move down
                             move.button(Icon.downOpen, Styles.emptyi, () -> {
                                 int idx = tags.indexOf(tag);
@@ -496,10 +485,11 @@ public class SchematicsDialog extends BaseDialog{
                                     tagsChanged();
                                     rebuild[0].run();
                                 }
-                            }).size(si).tooltip("@editor.movedown");
-                        }).fillY();
+                            }).tooltip("@editor.movedown");
+                        }).fillY().margin(6f);
 
-                        n.table(t -> {
+                        n.table(Tex.whiteui, t -> {
+                            t.setColor(Pal.gray);
                             t.add(tag).left().row();
                             t.add(Core.bundle.format("schematic.tagged", schematics.all().count(s -> s.labels.contains(tag)))).left()
                             .update(b -> b.setColor(b.hasMouse() ? Pal.accent : Color.lightGray)).get().clicked(() -> {
@@ -508,9 +498,9 @@ public class SchematicsDialog extends BaseDialog{
                                 rebuildTags.run();
                                 rebuildPane.run();
                             });
-                        }).growX().fillY();
+                        }).growX().fillY().margin(8f);
 
-                        n.table(b -> {
+                        n.table(Tex.pane, b -> {
                             b.margin(2);
 
                             //rename tag
@@ -534,7 +524,7 @@ public class SchematicsDialog extends BaseDialog{
                                         rebuild[0].run();
                                     }
                                 });
-                            }).size(si).tooltip("@schematic.renametag").row();
+                            }).tooltip("@schematic.renametag").row();
                             //delete tag
                             b.button(Icon.trash, Styles.emptyi, () -> {
                                 ui.showConfirm("@schematic.tagdelconfirm", () -> {
@@ -550,21 +540,22 @@ public class SchematicsDialog extends BaseDialog{
                                     rebuildPane.run();
                                     rebuild[0].run();
                                 });
-                            }).size(si).tooltip("@save.delete");
-                        }).fillY();
+                            }).tooltip("@save.delete");
+                        }).fillY().margin(6f);
                     });
 
                     next.pack();
-                    float w = next.getWidth() + Scl.scl(9f);
+                    float w = next.getPrefWidth() + Scl.scl(6f);
 
-                    if(w*2f + sum >= Core.graphics.getWidth() * 0.9f){
+                    if(w + sum >= Core.graphics.getWidth() * (Core.graphics.isPortrait() ? 1f : 0.8f)){
                         p.add(current).row();
                         current = new Table();
                         current.left();
+                        current.add(next).minWidth(240).pad(4);
                         sum = 0;
+                    }else{
+                        current.add(next).minWidth(240).pad(4);
                     }
-
-                    current.add(next).minWidth(210).pad(4);
 
                     sum += w;
                 }

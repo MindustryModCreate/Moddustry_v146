@@ -19,8 +19,6 @@ public class BaseShield extends Block{
     //TODO game rule? or field? should vary by base.
     public float radius = 200f;
     public int sides = 24;
-    
-    public @Nullable Color shieldColor;
 
     protected static BaseShieldBuild paramBuild;
     //protected static Effect paramEffect;
@@ -127,7 +125,7 @@ public class BaseShield extends Block{
 
                 Draw.z(Layer.shields);
 
-                Draw.color(shieldColor == null ? team.color : shieldColor, Color.white, Mathf.clamp(hit));
+                Draw.color(team.color, Color.white, Mathf.clamp(hit));
 
                 if(renderer.animateShields){
                     Fill.poly(x, y, sides, radius);

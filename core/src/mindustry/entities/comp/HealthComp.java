@@ -59,8 +59,6 @@ abstract class HealthComp implements Entityc, Posc{
     }
 
     void damage(float amount){
-        if(Float.isNaN(health)) health = 0f;
-
         health -= amount;
         hitTime = 1f;
         if(health <= 0 && !dead){
@@ -88,7 +86,6 @@ abstract class HealthComp implements Entityc, Posc{
 
     void clampHealth(){
         health = Math.min(health, maxHealth);
-        if(Float.isNaN(health)) health = 0f;
     }
 
     /** Heals by a flat amount. */

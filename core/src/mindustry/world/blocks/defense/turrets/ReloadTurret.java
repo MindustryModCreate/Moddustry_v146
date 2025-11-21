@@ -18,7 +18,8 @@ public class ReloadTurret extends BaseTurret{
         super.setStats();
 
         if(coolant != null){
-            stats.replace(Stat.booster, StatValues.boosters(reload, coolant.amount, coolantMultiplier, true, coolant::consumes));
+            stats.remove(Stat.booster);
+            stats.add(Stat.booster, StatValues.boosters(reload, coolant.amount, coolantMultiplier, true, l -> l.coolant && consumesLiquid(l)));
         }
     }
 
@@ -27,19 +28,15 @@ public class ReloadTurret extends BaseTurret{
 
         protected void updateCooling(){
             if(reloadCounter < reload && coolant != null && coolant.efficiency(this) > 0 && efficiency > 0){
-                float capacity = coolant instanceof ConsumeLiquidFilter filter ? filter.getConsumed(this).heatCapacity : (coolant.consumes(liquids.current()) ? liquids.current().heatCapacity : 0.4f);
+                float capacity = coolant instanceof ConsumeLiquidFilter filter ? filter.getConsumed(this).heatCapacity : 1f;
                 float amount = coolant.amount * coolant.efficiency(this);
                 coolant.update(this);
-                reloadCounter += amount * edelta() * capacity * coolantMultiplier * ammoReloadMultiplier();
+                reloadCounter += amount * edelta() * capacity * coolantMultiplier;
 
                 if(Mathf.chance(0.06 * amount)){
                     coolEffect.at(x + Mathf.range(size * tilesize / 2f), y + Mathf.range(size * tilesize / 2f));
                 }
             }
-        }
-
-        protected float ammoReloadMultiplier(){
-            return 1f;
         }
 
         protected float baseReloadSpeed(){

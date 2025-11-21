@@ -31,7 +31,6 @@ public class Menus{
     @Remote(variants = Variant.both)
     public static void menu(int menuId, String title, String message, String[][] options){
         if(title == null) title = "";
-        if(message == null) message = "";
         if(options == null) options = new String[0][0];
 
         ui.showMenu(title, message, options, (option) -> Call.menuChoose(player, menuId, option));
@@ -40,7 +39,6 @@ public class Menus{
     @Remote(variants = Variant.both)
     public static void followUpMenu(int menuId, String title, String message, String[][] options){
         if(title == null) title = "";
-        if(message == null) message = "";
         if(options == null) options = new String[0][0];
 
         ui.showFollowUpMenu(menuId, title, message, options, (option) -> Call.menuChoose(player, menuId, option));
@@ -63,16 +61,9 @@ public class Menus{
 
     @Remote(variants = Variant.both)
     public static void textInput(int textInputId, String title, String message, int textLength, String def, boolean numeric){
-        textInput(textInputId, title, message, textLength, def, numeric, false);
-    }
-
-    @Remote(variants = Variant.both)
-    public static void textInput(int textInputId, String title, String message, int textLength, String def, boolean numeric, boolean allowEmpty){
         if(title == null) title = "";
-        if(message == null) message = "";
-        if(def == null) def = "";
 
-        ui.showTextInput(title, message, textLength, def, numeric, allowEmpty, (text) -> {
+        ui.showTextInput(title, message, textLength, def, numeric, (text) -> {
             Call.textInputResult(player, textInputId, text);
         }, () -> {
             Call.textInputResult(player, textInputId, null);

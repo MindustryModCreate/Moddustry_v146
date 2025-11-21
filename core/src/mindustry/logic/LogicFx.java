@@ -57,12 +57,6 @@ public class LogicFx{
         return map.get(name);
     }
 
-    /** Adds an effect entry to the map. */
-    public static void add(String name, EffectEntry entry){
-        entry.name = name;
-        map.put(name, entry);
-    }
-
     public static String[] all(){
         return map.orderedKeys().toArray(String.class);
     }

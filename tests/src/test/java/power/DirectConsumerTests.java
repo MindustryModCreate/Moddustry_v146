@@ -29,9 +29,8 @@ public class DirectConsumerTests extends PowerTestFixture{
         testUnitFactory(30, 30, 0.08f, 0.08f, 1.0f);
     }
 
-    static int fakes = 0;
     void testUnitFactory(int siliconAmount, int leadAmount, float producedPower, float requestedPower, float expectedSatisfaction){
-        Tile ct = createFakeTile(0, 0, new GenericCrafter("fakefactory" + (fakes ++)){{
+        Tile ct = createFakeTile(0, 0, new GenericCrafter("fakefactory"){{
             hasPower = true;
             hasItems = true;
             consumePower(requestedPower);
